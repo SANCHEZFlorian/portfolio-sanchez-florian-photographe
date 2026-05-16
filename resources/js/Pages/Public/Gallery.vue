@@ -26,7 +26,12 @@ const setCategory = (slug) => {
 </script>
 
 <template>
-    <Head title="Galerie" />
+    <Head>
+        <title>Galerie Photo & Instants | Florian Sanchez Photographe</title>
+        <meta name="description" content="Une immersion visuelle dans mes coups de cœur photographiques. Portraits, paysages et photographie de rue." />
+        <meta property="og:title" content="Galerie Photo | Florian Sanchez Photographe" />
+        <meta property="og:description" content="Découvrez une sélection de mes clichés favoris." />
+    </Head>
 
     <section class="gallery-hero">
         <div class="container">

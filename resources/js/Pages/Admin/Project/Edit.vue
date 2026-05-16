@@ -47,6 +47,22 @@ const uploadPhotos = (e) => {
 };
 
 const processUpload = (files) => {
+    const MAX_SIZE = 100 * 1024 * 1024; // 100MB
+    let totalSize = 0;
+
+    for (const file of files) {
+        if (file.size > MAX_SIZE) {
+            alert(`Le fichier ${file.name} est trop lourd (max 100Mo).`);
+            return;
+        }
+        totalSize += file.size;
+    }
+
+    if (totalSize > MAX_SIZE) {
+        alert("Le total des fichiers dépasse 100Mo. Veuillez uploader en plusieurs fois.");
+        return;
+    }
+
     const formData = new FormData();
     files.forEach(f => formData.append('photos[]', f));
 

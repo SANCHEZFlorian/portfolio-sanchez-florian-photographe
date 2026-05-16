@@ -20,10 +20,7 @@ const props = defineProps({
                 <ScrollReveal :x="-30" :y="0">
                     <div class="about-visual">
                         <div class="about-visual-card">
-                            <div class="about-visual-accent"></div>
-                            <div class="about-visual-content">
-                                <span class="about-visual-mark gradient-text">FS</span>
-                            </div>
+                            <img src="/images/florian-sanchez.jpg" alt="Florian Sanchez" class="about-portrait" />
                         </div>
                     </div>
                 </ScrollReveal>
@@ -112,26 +109,16 @@ const props = defineProps({
     border: 1px solid var(--border-color);
 }
 
-.about-visual-accent {
-    position: absolute;
-    inset: 0;
-    background:
-        radial-gradient(circle at 30% 40%, var(--primary-glow-strong), transparent 50%),
-        radial-gradient(circle at 70% 70%, var(--accent-glow), transparent 40%);
+.about-portrait {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: grayscale(0.1) contrast(1.05);
+    transition: transform 0.8s var(--ease-out);
 }
 
-.about-visual-content {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.about-visual-mark {
-    font-size: 8rem;
-    font-weight: 900;
-    opacity: 0.15;
+.about-visual-card:hover .about-portrait {
+    transform: scale(1.05);
 }
 
 .about-text .section-eyebrow {

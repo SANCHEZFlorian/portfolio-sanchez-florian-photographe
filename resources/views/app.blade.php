@@ -3,16 +3,34 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        
+        <!-- dynamic title handled by Inertia -->
         <title inertia>{{ config('app.name', 'Florian Sanchez Photographie') }}</title>
 
-        <!-- SEO / Social -->
-        <link rel="icon" type="image/png" href="/favicon.png">
-        <meta name="description" content="Florian Sanchez — Photographe professionnel. Découvrez mes projets, shootings et galeries.">
+        <!-- SEO Meta Tags -->
+        <meta name="robots" content="index, follow">
+        <meta name="author" content="Florian Sanchez">
+        <meta name="description" content="Florian Sanchez — Photographe professionnel spécialisé dans le portrait, l'événementiel et le reportage. Découvrez mon portfolio et mes prestations.">
+        
+        <!-- Open Graph / Facebook -->
         <meta property="og:type" content="website">
-        <meta property="og:title" content="Florian Sanchez | Photographe">
-        <meta property="og:description" content="Capturer l'instant, révéler l'émotion. Portfolio photographique professionnel.">
-        <meta property="og:image" content="/favicon.png">
+        <meta property="og:url" content="{{ url()->current() }}">
+        <meta property="og:title" content="Florian Sanchez | Photographe Professionnel">
+        <meta property="og:description" content="Capturer l'instant, révéler l'émotion. Découvrez l'univers photographique de Florian Sanchez.">
+        <meta property="og:image" content="{{ asset('favicon.png') }}">
         <meta property="og:site_name" content="Florian Sanchez Photographie">
+
+        <!-- Twitter -->
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:url" content="{{ url()->current() }}">
+        <meta name="twitter:title" content="Florian Sanchez | Photographe Professionnel">
+        <meta name="twitter:description" content="Capturer l'instant, révéler l'émotion. Découvrez l'univers photographique de Florian Sanchez.">
+        <meta name="twitter:image" content="{{ asset('favicon.png') }}">
+
+        <!-- Favicons -->
+        <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
+        <link rel="apple-touch-icon" href="{{ asset('favicon.png') }}">
+        <link rel="canonical" href="{{ url()->current() }}">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.googleapis.com">

@@ -21,7 +21,12 @@ const filterCategory = (slug) => {
 </script>
 
 <template>
-    <Head title="Projets" />
+    <Head>
+        <title>Portfolio & Projets | Florian Sanchez Photographe</title>
+        <meta name="description" content="Explorez mes projets photographiques : shootings mode, portraits, reportages et événements. Chaque projet capture un instant unique." />
+        <meta property="og:title" content="Portfolio & Projets | Florian Sanchez Photographe" />
+        <meta property="og:description" content="Découvrez mes derniers travaux et reportages photographiques." />
+    </Head>
 
     <section class="section">
         <div class="container">

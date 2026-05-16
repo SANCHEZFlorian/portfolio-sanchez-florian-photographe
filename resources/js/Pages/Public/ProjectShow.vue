@@ -17,11 +17,19 @@ const activePhoto = ref(null);
 
 <template>
     <Head>
-        <title>{{ project.title }}</title>
-        <meta name="description" :content="project.description || 'Découvrez mon projet photographique ' + project.title" />
+        <title>{{ project.title }} | Florian Sanchez Photographe</title>
+        <meta name="description" :content="project.description || 'Découvrez le projet photographique ' + project.title + ' par Florian Sanchez.'" />
+        
+        <!-- Open Graph -->
         <meta property="og:title" :content="project.title + ' | Florian Sanchez'" />
         <meta property="og:description" :content="project.description || 'Projet photographique professionnel.'" />
         <meta v-if="project.cover_url" property="og:image" :content="project.cover_url" />
+        <meta property="og:type" content="article" />
+        
+        <!-- Twitter -->
+        <meta name="twitter:title" :content="project.title + ' | Florian Sanchez'" />
+        <meta name="twitter:description" :content="project.description || 'Découvrez mon dernier projet photographique.'" />
+        <meta v-if="project.cover_url" name="twitter:image" :content="project.cover_url" />
     </Head>
 
     <!-- Project Header -->

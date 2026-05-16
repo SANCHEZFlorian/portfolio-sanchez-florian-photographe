@@ -7,7 +7,9 @@ use App\Models\Contact;
 use App\Models\Photo;
 use App\Models\Project;
 use App\Models\SiteSetting;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\ContactMessage;
+use App\Mail\ContactConfirmation;
 use Inertia\Inertia;
 
 class PublicController extends Controller
@@ -155,7 +157,17 @@ class PublicController extends Controller
             'message' => 'required|string|max:5000',
         ]);
 
-        Contact::create($validated);
+        $contact = Contact::create($validated);
+
+        // Notify admin
+        try {
+            Mail::to(config('mail.from.address'))->send(new ContactMessage($contact));
+            
+            // Send confirmation to user
+            Mail::to($contact->email)->send(new ContactConfirmation($contact));
+        } catch (\Exception $e) {
+            \Log::error('Mail sending failed: ' . $e->getMessage());
+        }
 
         return back()->with('success', 'Votre message a été envoyé avec succès !');
     }

@@ -58,7 +58,12 @@ const openLightbox = (photo) => {
 </script>
 
 <template>
-    <Head title="Accueil" />
+    <Head>
+        <title>Florian Sanchez | Photographe Professionnel</title>
+        <meta name="description" content="Portfolio de Florian Sanchez, photographe professionnel spécialisé dans le portrait, le reportage et l'événementiel. Capturer l'instant, révéler l'émotion." />
+        <meta property="og:title" content="Florian Sanchez | Photographe Professionnel" />
+        <meta property="og:description" content="Découvrez mon univers photographique : portraits, reportages et shootings professionnels." />
+    </Head>
 
     <!-- Hero Section -->
     <section class="hero" ref="heroRef">
@@ -188,7 +193,7 @@ const openLightbox = (photo) => {
                 </ScrollReveal>
                 <ScrollReveal :x="30" :y="0" :delay="0.2">
                     <div class="about-teaser-visual">
-                        <div class="about-visual-accent"></div>
+                        <img src="/images/florian-sanchez.jpg" alt="Florian Sanchez - Photographe" class="about-img" />
                     </div>
                 </ScrollReveal>
             </div>
@@ -452,19 +457,24 @@ const openLightbox = (photo) => {
 
 .about-teaser-visual {
     position: relative;
-    height: 400px;
+    height: 500px;
     border-radius: var(--radius-lg);
-    background: linear-gradient(135deg, var(--surface-color), var(--bg-elevated));
+    background: var(--bg-elevated);
     border: 1px solid var(--border-color);
     overflow: hidden;
+    box-shadow: var(--shadow-lg);
 }
 
-.about-visual-accent {
-    position: absolute;
-    inset: 0;
-    background:
-        radial-gradient(circle at 30% 40%, var(--primary-glow-strong), transparent 60%),
-        radial-gradient(circle at 70% 60%, var(--accent-glow), transparent 50%);
+.about-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: grayscale(0.2) contrast(1.1);
+    transition: transform 0.8s var(--ease-out);
+}
+
+.about-teaser-visual:hover .about-img {
+    transform: scale(1.05);
 }
 
 /* CTA Section */
