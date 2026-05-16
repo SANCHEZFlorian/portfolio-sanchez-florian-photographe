@@ -12,15 +12,29 @@ const props = defineProps({
 
 // Photo upload
 const uploading = ref(false);
+const isDragOver = ref(false);
 const uploadForm = useForm({
     photos: [],
     category_id: props.categories.length > 0 ? props.categories[0].id : null,
 });
 
+const handleDrop = (e) => {
+    isDragOver.value = false;
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+        processUpload(files);
+    }
+};
+
 const uploadPhotos = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+    if (files.length > 0) {
+        processUpload(files);
+        e.target.value = '';
+    }
+};
 
+const processUpload = (files) => {
     const formData = new FormData();
     files.forEach(f => formData.append('photos[]', f));
     if (uploadForm.category_id) {
@@ -33,7 +47,6 @@ const uploadPhotos = (e) => {
         preserveScroll: true,
         onFinish: () => {
             uploading.value = false;
-            e.target.value = '';
         },
     });
 };
@@ -139,14 +152,20 @@ const onDrop = (e, targetIndex) => {
                         Ces photos apparaîtront dans la section "Galerie" du site.
                     </p>
                     
-                    <label class="upload-zone" :class="{ active: uploading }">
+                    <label 
+                        class="upload-zone" 
+                        :class="{ active: uploading || isDragOver }"
+                        @dragover.prevent="isDragOver = true"
+                        @dragleave.prevent="isDragOver = false"
+                        @drop.prevent="handleDrop"
+                    >
                         <input type="file" multiple accept="image/*" @change="uploadPhotos" style="display: none;" />
                         <div v-if="uploading" style="color: var(--accent);">
                             ⏳ Téléversement et optimisation...
                         </div>
                         <div v-else>
                             <div style="font-size: 2rem; margin-bottom: var(--space-sm);">📷</div>
-                            <div>Cliquez ou glissez pour uploader</div>
+                            <div>{{ isDragOver ? 'Relâchez pour uploader !' : 'Cliquez ou glissez pour uploader' }}</div>
                         </div>
                     </label>
                 </div>

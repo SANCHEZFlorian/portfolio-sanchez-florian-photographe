@@ -28,10 +28,25 @@ const submitMeta = () => {
 
 // Photo upload
 const uploading = ref(false);
+const isDragOver = ref(false);
+
+const handleDrop = (e) => {
+    isDragOver.value = false;
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+        processUpload(files);
+    }
+};
+
 const uploadPhotos = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+    if (files.length > 0) {
+        processUpload(files);
+        e.target.value = '';
+    }
+};
 
+const processUpload = (files) => {
     const formData = new FormData();
     files.forEach(f => formData.append('photos[]', f));
 
@@ -41,7 +56,6 @@ const uploadPhotos = (e) => {
         preserveScroll: true,
         onFinish: () => {
             uploading.value = false;
-            e.target.value = '';
         },
     });
 };
@@ -209,14 +223,22 @@ const onDrop = (e, targetIndex) => {
                     <div class="flex-between" style="margin-bottom: var(--space-md);">
                         <h3 style="margin: 0;">Photos ({{ project.photos.length }})</h3>
                     </div>
-                    <label class="upload-zone" :class="{ active: uploading }">
+                    <label 
+                        class="upload-zone" 
+                        :class="{ active: uploading || isDragOver }"
+                        @dragover.prevent="isDragOver = true"
+                        @dragleave.prevent="isDragOver = false"
+                        @drop.prevent="handleDrop"
+                    >
                         <input type="file" multiple accept="image/*" @change="uploadPhotos" style="display: none;" />
                         <div v-if="uploading" style="color: var(--accent);">
                             ⏳ Téléversement et optimisation en cours...
                         </div>
                         <div v-else>
                             <div style="font-size: 2rem; margin-bottom: var(--space-sm);">📷</div>
-                            <div style="color: var(--text-secondary);">Cliquez ou glissez vos photos ici</div>
+                            <div style="color: var(--text-secondary);">
+                                {{ isDragOver ? 'Relâchez pour uploader !' : 'Cliquez ou glissez vos photos ici' }}
+                            </div>
                             <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: var(--space-xs);">
                                 Les thumbnails WebP sont générés automatiquement
                             </div>
