@@ -7,6 +7,7 @@ use App\Models\Contact;
 use App\Models\Photo;
 use App\Models\Project;
 use App\Models\SiteSetting;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\ContactMessage;
 use App\Mail\ContactConfirmation;
