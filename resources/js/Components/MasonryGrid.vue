@@ -63,7 +63,12 @@ watch(() => props.photos, () => {
                     <span v-if="photo.project" class="overlay-project">{{ photo.project.title }}</span>
                     <span v-if="photo.caption" class="overlay-caption">{{ photo.caption }}</span>
                     <span v-if="photo.instagram_tag" class="overlay-insta">
-                        {{ photo.instagram_tag }}
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                            <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                        </svg>
+                        {{ photo.instagram_tag.startsWith('@') ? photo.instagram_tag : '@' + photo.instagram_tag }}
                     </span>
                 </div>
             </div>
@@ -137,12 +142,18 @@ watch(() => props.photos, () => {
 }
 
 .overlay-insta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-size: 0.75rem;
-    color: var(--primary-light);
-    background: var(--primary-glow);
-    padding: 0.15rem 0.5rem;
+    font-weight: 600;
+    color: var(--accent-light);
+    background: rgba(157, 78, 221, 0.15);
+    backdrop-filter: blur(4px);
+    padding: 0.25rem 0.75rem;
     border-radius: var(--radius-full);
-    display: inline-block;
+    border: 1px solid rgba(157, 78, 221, 0.2);
     width: fit-content;
+    margin-top: 4px;
 }
 </style>

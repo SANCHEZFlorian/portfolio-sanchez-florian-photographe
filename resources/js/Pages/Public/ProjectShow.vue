@@ -13,6 +13,12 @@ const props = defineProps({
 });
 
 const activePhoto = ref(null);
+
+const getInstaUsername = (url) => {
+    if (!url) return '';
+    const parts = url.replace(/\/$/, '').split('/');
+    return '@' + parts[parts.length - 1];
+};
 </script>
 
 <template>
@@ -54,9 +60,14 @@ const activePhoto = ref(null);
                         :href="project.instagram_url"
                         target="_blank"
                         rel="noopener"
-                        class="insta-link"
+                        class="insta-link-premium"
                     >
-                        Voir sur Instagram →
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                            <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                        </svg>
+                        <span>{{ getInstaUsername(project.instagram_url) }}</span>
                     </a>
                 </div>
             </ScrollReveal>
@@ -128,15 +139,25 @@ const activePhoto = ref(null);
     margin-bottom: var(--space-md);
 }
 
-.insta-link {
-    display: inline-block;
-    color: var(--accent);
-    font-size: 0.95rem;
-    transition: color var(--transition-base);
+.insta-link-premium {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    color: var(--accent-light);
+    font-size: 1rem;
+    font-weight: 500;
+    transition: all var(--transition-base);
+    padding: 0.5rem 1rem;
+    background: var(--accent-glow);
+    border-radius: var(--radius-full);
+    border: 1px solid rgba(157, 78, 221, 0.2);
 }
 
-.insta-link:hover {
-    color: var(--accent-light);
+.insta-link-premium:hover {
+    color: white;
+    background: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px var(--accent-glow);
 }
 
 .project-title-block .badge {
