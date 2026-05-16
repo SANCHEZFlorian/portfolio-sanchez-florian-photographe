@@ -30,7 +30,7 @@ class StandalonePhotoController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'photos.*' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:20000',
+            'photos.*' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:102400',
             'category_id' => 'nullable|exists:categories,id',
         ]);
 

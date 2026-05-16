@@ -18,7 +18,7 @@ class PhotoController extends Controller
     public function store(Request $request, Project $project)
     {
         $request->validate([
-            'photos.*' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:20000',
+            'photos.*' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:102400',
         ]);
 
         if ($request->hasFile('photos')) {
