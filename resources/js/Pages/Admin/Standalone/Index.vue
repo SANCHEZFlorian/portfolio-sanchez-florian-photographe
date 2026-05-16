@@ -4,6 +4,7 @@ import { Head, useForm, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AdminModal from '@/Components/AdminModal.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
+import PremiumSelect from '@/Components/PremiumSelect.vue';
 
 const props = defineProps({
     photos: Array,
@@ -191,9 +192,11 @@ const onDrop = (e, targetIndex) => {
                     <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: var(--space-md);">
                         S'appliquera aux prochaines photos uploadées.
                     </p>
-                    <select v-model="uploadForm.category_id" style="width: 100%;">
-                        <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-                    </select>
+                    <PremiumSelect 
+                        v-model="uploadForm.category_id"
+                        :options="categories"
+                        placeholder="Sélectionner une catégorie"
+                    />
                 </div>
             </div>
         </div>
@@ -262,9 +265,10 @@ const onDrop = (e, targetIndex) => {
 
                 <div class="form-group">
                     <label class="form-label">Catégorie</label>
-                    <select v-model="photoForm.category_id">
-                        <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-                    </select>
+                    <PremiumSelect 
+                        v-model="photoForm.category_id"
+                        :options="categories"
+                    />
                 </div>
 
                 <div class="form-group">
@@ -286,18 +290,24 @@ const onDrop = (e, targetIndex) => {
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
                     <div class="form-group">
                         <label class="form-label">Colonnes (Grille)</label>
-                        <select v-model="photoForm.span_cols">
-                            <option :value="1">1 (Normal)</option>
-                            <option :value="2">2 (Large)</option>
-                            <option :value="3">3 (Extra)</option>
-                        </select>
+                        <PremiumSelect 
+                            v-model="photoForm.span_cols"
+                            :options="[
+                                { id: 1, name: '1 (Normal)' },
+                                { id: 2, name: '2 (Large)' },
+                                { id: 3, name: '3 (Extra)' }
+                            ]"
+                        />
                     </div>
                     <div class="form-group">
                         <label class="form-label">Lignes (Grille)</label>
-                        <select v-model="photoForm.span_rows">
-                            <option :value="1">1 (Normal)</option>
-                            <option :value="2">2 (Haut)</option>
-                        </select>
+                        <PremiumSelect 
+                            v-model="photoForm.span_rows"
+                            :options="[
+                                { id: 1, name: '1 (Normal)' },
+                                { id: 2, name: '2 (Haut)' }
+                            ]"
+                        />
                     </div>
                 </div>
 

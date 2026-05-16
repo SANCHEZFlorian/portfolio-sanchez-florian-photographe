@@ -4,6 +4,7 @@ import { Head, useForm, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AdminModal from '@/Components/AdminModal.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
+import PremiumSelect from '@/Components/PremiumSelect.vue';
 
 const props = defineProps({
     project: Object,
@@ -186,9 +187,11 @@ const onDrop = (e, targetIndex) => {
 
                         <div class="form-group">
                             <label class="form-label">Catégorie</label>
-                            <select v-model="form.category_id" required>
-                                <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-                            </select>
+                            <PremiumSelect 
+                                v-model="form.category_id"
+                                :options="categories"
+                                placeholder="Sélectionner une catégorie"
+                            />
                         </div>
 
                         <div class="form-group">
@@ -216,12 +219,15 @@ const onDrop = (e, targetIndex) => {
                                 <input type="checkbox" v-model="form.is_featured" style="width: auto; accent-color: var(--primary);" />
                                 En avant sur l'accueil
                             </label>
-                            <div>
+                            <div style="flex: 1;">
                                 <label class="form-label">Statut</label>
-                                <select v-model="form.status" style="padding: 0.4rem;">
-                                    <option value="published">Publié</option>
-                                    <option value="draft">Brouillon</option>
-                                </select>
+                                <PremiumSelect 
+                                    v-model="form.status"
+                                    :options="[
+                                        { id: 'published', name: 'Publié' },
+                                        { id: 'draft', name: 'Brouillon' }
+                                    ]"
+                                />
                             </div>
                         </div>
 
@@ -333,18 +339,24 @@ const onDrop = (e, targetIndex) => {
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-md);">
                     <div class="form-group">
                         <label class="form-label">Colonnes</label>
-                        <select v-model="photoForm.span_cols">
-                            <option :value="1">1 (Normal)</option>
-                            <option :value="2">2 (Large)</option>
-                            <option :value="3">3 (Très large)</option>
-                        </select>
+                        <PremiumSelect 
+                            v-model="photoForm.span_cols"
+                            :options="[
+                                { id: 1, name: '1 (Normal)' },
+                                { id: 2, name: '2 (Large)' },
+                                { id: 3, name: '3 (Très large)' }
+                            ]"
+                        />
                     </div>
                     <div class="form-group">
                         <label class="form-label">Lignes</label>
-                        <select v-model="photoForm.span_rows">
-                            <option :value="1">1 (Normal)</option>
-                            <option :value="2">2 (Haute)</option>
-                        </select>
+                        <PremiumSelect 
+                            v-model="photoForm.span_rows"
+                            :options="[
+                                { id: 1, name: '1 (Normal)' },
+                                { id: 2, name: '2 (Haute)' }
+                            ]"
+                        />
                     </div>
                     <div class="form-group">
                         <label class="form-label">Ordre</label>

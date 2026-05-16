@@ -1,6 +1,7 @@
 <script setup>
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import PremiumSelect from '@/Components/PremiumSelect.vue';
 
 const props = defineProps({
     categories: Array,
@@ -43,10 +44,11 @@ const submit = () => {
 
                 <div class="form-group">
                     <label class="form-label">Catégorie *</label>
-                    <select v-model="form.category_id" required>
-                        <option value="" disabled>Sélectionner une catégorie</option>
-                        <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-                    </select>
+                    <PremiumSelect 
+                        v-model="form.category_id"
+                        :options="categories"
+                        placeholder="Sélectionner une catégorie"
+                    />
                     <div v-if="form.errors.category_id" class="form-error">{{ form.errors.category_id }}</div>
                 </div>
 
@@ -71,17 +73,20 @@ const submit = () => {
                     <textarea v-model="form.description" rows="4" placeholder="Décrivez le shooting..."></textarea>
                 </div>
 
-                <div style="display: flex; gap: var(--space-xl); margin-bottom: var(--space-xl);">
+                <div style="display: flex; gap: var(--space-xl); margin-bottom: var(--space-xl); align-items: center;">
                     <label style="display: flex; align-items: center; gap: var(--space-sm); cursor: pointer; color: var(--text-secondary);">
                         <input type="checkbox" v-model="form.is_featured" style="width: auto; accent-color: var(--primary);" />
                         Mettre en avant sur l'accueil
                     </label>
-                    <label style="display: flex; align-items: center; gap: var(--space-sm); cursor: pointer; color: var(--text-secondary);">
-                        <select v-model="form.status" style="width: auto; padding: 0.4rem 2rem 0.4rem 0.6rem;">
-                            <option value="published">Publié</option>
-                            <option value="draft">Brouillon</option>
-                        </select>
-                    </label>
+                    <div style="width: 150px;">
+                        <PremiumSelect 
+                            v-model="form.status"
+                            :options="[
+                                { id: 'published', name: 'Publié' },
+                                { id: 'draft', name: 'Brouillon' }
+                            ]"
+                        />
+                    </div>
                 </div>
 
                 <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;" :disabled="form.processing">
