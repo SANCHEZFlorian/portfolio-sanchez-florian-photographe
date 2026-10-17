@@ -47,12 +47,16 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::resource('projects', \App\Http\Controllers\Admin\ProjectController::class);
 
     // Photos (nested under projects)
+    Route::post('projects/{project}/photos/bulk-action', [\App\Http\Controllers\Admin\PhotoController::class, 'bulkAction'])->name('projects.photos.bulkAction');
+    Route::post('projects/{project}/photos/bulk-destroy', [\App\Http\Controllers\Admin\PhotoController::class, 'bulkDestroy'])->name('projects.photos.bulkDestroy');
     Route::post('projects/{project}/photos', [\App\Http\Controllers\Admin\PhotoController::class, 'store'])->name('projects.photos.store');
     Route::put('projects/{project}/photos/{photo}', [\App\Http\Controllers\Admin\PhotoController::class, 'update'])->name('projects.photos.update');
     Route::delete('projects/{project}/photos/{photo}', [\App\Http\Controllers\Admin\PhotoController::class, 'destroy'])->name('projects.photos.destroy');
     Route::post('projects/{project}/photos/reorder', [\App\Http\Controllers\Admin\PhotoController::class, 'reorder'])->name('projects.photos.reorder');
 
     // Standalone photos (En vrac)
+    Route::post('photos/bulk-action', [\App\Http\Controllers\Admin\StandalonePhotoController::class, 'bulkAction'])->name('photos.bulkAction');
+    Route::post('photos/bulk-destroy', [\App\Http\Controllers\Admin\StandalonePhotoController::class, 'bulkDestroy'])->name('photos.bulkDestroy');
     Route::get('photos', [\App\Http\Controllers\Admin\StandalonePhotoController::class, 'index'])->name('photos.index');
     Route::post('photos', [\App\Http\Controllers\Admin\StandalonePhotoController::class, 'store'])->name('photos.store');
     Route::put('photos/{photo}', [\App\Http\Controllers\Admin\StandalonePhotoController::class, 'update'])->name('photos.update');

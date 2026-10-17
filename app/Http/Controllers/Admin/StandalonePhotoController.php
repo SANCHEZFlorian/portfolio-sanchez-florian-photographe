@@ -75,6 +75,8 @@ class StandalonePhotoController extends Controller
             'category_id' => 'nullable|exists:categories,id',
             'span_cols' => 'required|integer|min:1|max:12',
             'span_rows' => 'required|integer|min:1|max:12',
+            'col_start' => 'nullable|integer|min:1|max:12',
+            'row_start' => 'nullable|integer|min:1',
             'display_order' => 'required|integer',
             'is_highlighted' => 'sometimes|boolean',
         ]);
@@ -82,6 +84,72 @@ class StandalonePhotoController extends Controller
         $photo->update($validated);
 
         return back();
+    }
+
+    /**
+     * Bulk action on standalone photos
+     */
+     public function bulkAction(Request $request)
+     {
+         $validated = $request->validate([
+             'ids' => 'required|array',
+             'ids.*' => 'integer|exists:photos,id',
+             'action' => 'required|string|in:set_format,set_category,set_instagram_tag,set_highlight,remove_highlight',
+             'span_cols' => 'nullable|integer',
+             'span_rows' => 'nullable|integer',
+             'category_id' => 'nullable|exists:categories,id',
+             'instagram_tag' => 'nullable|string|max:255',
+         ]);
+
+         $query = Photo::standalone()->whereIn('id', $validated['ids']);
+
+         switch ($validated['action']) {
+             case 'set_format':
+                 if (isset($validated['span_cols']) && isset($validated['span_rows'])) {
+                     $query->update([
+                         'span_cols' => $validated['span_cols'],
+                         'span_rows' => $validated['span_rows'],
+                     ]);
+                 }
+                 break;
+             case 'set_category':
+                 $query->update(['category_id' => $validated['category_id'] ?? null]);
+                 break;
+             case 'set_instagram_tag':
+                 $query->update(['instagram_tag' => $validated['instagram_tag'] ?? null]);
+                 break;
+             case 'set_highlight':
+                 $query->update(['is_highlighted' => true]);
+                 break;
+             case 'remove_highlight':
+                 $query->update(['is_highlighted' => false]);
+                 break;
+         }
+
+         return back()->with('success', count($validated['ids']) . ' photo(s) mise(s) à jour.');
+     }
+
+    /**
+     * Bulk delete standalone photos
+     */
+    public function bulkDestroy(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer|exists:photos,id',
+        ]);
+
+        $photos = Photo::standalone()->whereIn('id', $validated['ids'])->get();
+
+        foreach ($photos as $photo) {
+            Storage::disk('public')->delete($photo->image_path);
+            if ($photo->thumbnail_path) {
+                Storage::disk('public')->delete($photo->thumbnail_path);
+            }
+            $photo->delete();
+        }
+
+        return back()->with('success', count($photos) . ' photo(s) supprimée(s).');
     }
 
     /**
@@ -100,7 +168,7 @@ class StandalonePhotoController extends Controller
     }
 
     /**
-     * Bulk update display order
+     * Bulk update display order and optional grid positions
      */
     public function reorder(Request $request)
     {
@@ -108,10 +176,19 @@ class StandalonePhotoController extends Controller
             'order' => 'required|array',
             'order.*.id' => 'required|integer|exists:photos,id',
             'order.*.display_order' => 'required|integer',
+            'order.*.col_start' => 'nullable|integer',
+            'order.*.row_start' => 'nullable|integer',
         ]);
 
         foreach ($request->input('order') as $item) {
-            Photo::where('id', $item['id'])->update(['display_order' => $item['display_order']]);
+            $updateData = ['display_order' => $item['display_order']];
+            if (array_key_exists('col_start', $item)) {
+                $updateData['col_start'] = $item['col_start'];
+            }
+            if (array_key_exists('row_start', $item)) {
+                $updateData['row_start'] = $item['row_start'];
+            }
+            Photo::where('id', $item['id'])->update($updateData);
         }
 
         return back();

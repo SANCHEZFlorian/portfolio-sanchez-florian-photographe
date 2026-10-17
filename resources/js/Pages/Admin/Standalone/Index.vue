@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick } from 'vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import axios from 'axios';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
@@ -65,6 +65,27 @@ const getCurrentFormatId = (photo) => {
     if (c === 12 && r === 8) return 'landscape-lg';
     if (c === 6 && r === 9) return 'portrait-lg';
     return c >= r ? 'landscape-sm' : 'portrait-sm';
+};
+
+const getItemGridStyle = (photo) => {
+    let c = photo.span_cols || 3;
+    let r = photo.span_rows || 2;
+    // Rétrocompatibilité
+    if (c === 12 && r === 8) { c = 6; r = 4; }
+    else if (c === 6 && r === 9) { c = 4; r = 6; }
+    else if (c === 2 && r === 1) { c = 6; r = 4; }
+    else if (c === 1 && r === 2) { c = 4; r = 6; }
+    else if (c === 1 && r === 1) { c = 3; r = 2; }
+
+    const style = {};
+    if (photo.col_start && photo.row_start) {
+        style.gridColumn = `${photo.col_start} / span ${c}`;
+        style.gridRow = `${photo.row_start} / span ${r}`;
+    } else {
+        style.gridColumn = `span ${c}`;
+        style.gridRow = `span ${r}`;
+    }
+    return style;
 };
 
 // Photo upload & batch processing
@@ -260,11 +281,27 @@ const quickSetFormat = (photo, format) => {
     photo.span_cols = format.cols;
     photo.span_rows = format.rows;
 
+    // Ajuster col_start si le nouveau format dépasse les 12 colonnes
+    if (photo.col_start && (photo.col_start + format.cols - 1) > 12) {
+        photo.col_start = Math.max(1, 13 - format.cols);
+    }
+
     router.put(`/admin/photos/${photo.id}`, {
-        ...photo,
+        caption: photo.caption,
+        instagram_tag: photo.instagram_tag,
+        category_id: photo.category_id,
         span_cols: format.cols,
         span_rows: format.rows,
-    }, { preserveScroll: true });
+        col_start: photo.col_start,
+        row_start: photo.row_start,
+        display_order: photo.display_order,
+        is_highlighted: photo.is_highlighted,
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            nextTick(updateAdminGridUnit);
+        }
+    });
 };
 
 // Quick toggle Highlight
@@ -272,54 +309,259 @@ const toggleHighlight = (photo) => {
     photo.is_highlighted = !photo.is_highlighted;
 
     router.put(`/admin/photos/${photo.id}`, {
-        ...photo,
+        caption: photo.caption,
+        instagram_tag: photo.instagram_tag,
+        category_id: photo.category_id,
+        span_cols: photo.span_cols,
+        span_rows: photo.span_rows,
+        col_start: photo.col_start,
+        row_start: photo.row_start,
+        display_order: photo.display_order,
         is_highlighted: photo.is_highlighted,
     }, { preserveScroll: true });
 };
 
-// Drag & Drop reorder
+// Drag & Drop interactif en direct (style Android widget réactif)
 const draggingIndex = ref(null);
 const dragOverIndex = ref(null);
+let originalPhotosState = null;
+let hasReordered = false;
 
 const onDragStart = (e, index) => {
     draggingIndex.value = index;
+    dragOverIndex.value = index;
+    hasReordered = false;
+    originalPhotosState = JSON.parse(JSON.stringify(props.photos));
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', index);
 };
 
-const onDragOver = (e, index) => {
+// Réordonnancement en direct dès qu'on survole une photo (déplacement dynamique des éléments)
+const onDragEnterItem = (e, targetIndex) => {
     e.preventDefault();
-    dragOverIndex.value = index;
-    e.dataTransfer.dropEffect = 'move';
-};
+    if (draggingIndex.value === null || draggingIndex.value === targetIndex) return;
 
-const onDragLeave = () => {
-    dragOverIndex.value = null;
-};
-
-const onDrop = (e, targetIndex) => {
-    e.preventDefault();
-    if (draggingIndex.value === null || draggingIndex.value === targetIndex) {
-        draggingIndex.value = null;
-        dragOverIndex.value = null;
-        return;
-    }
-
+    // Déplacement dynamique immédiat dans la liste
     const photosList = [...props.photos];
     const [moved] = photosList.splice(draggingIndex.value, 1);
     photosList.splice(targetIndex, 0, moved);
 
+    // Recalculer les positions 2D instantanément
+    computeGridPositions(photosList);
     photosList.forEach((p, idx) => p.display_order = idx);
-    props.photos.splice(0, props.photos.length, ...photosList);
 
-    const order = photosList.map((p, i) => ({ id: p.id, display_order: i }));
+    props.photos.splice(0, props.photos.length, ...photosList);
+    draggingIndex.value = targetIndex;
+    dragOverIndex.value = targetIndex;
+    hasReordered = true;
+};
+
+const onDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+};
+
+const onDragEnd = () => {
+    if (hasReordered) {
+        saveOrderToServer();
+    }
+    draggingIndex.value = null;
+    dragOverIndex.value = null;
+    originalPhotosState = null;
+    hasReordered = false;
+};
+
+// Algorithme de calcul du positionnement 2D (simule le quadrillage 12 cols sans collisions)
+const computeGridPositions = (photosList) => {
+    const gridOccupied = {}; // key: "r,c" => true
+    const isSlotAvailable = (row, col, w, h) => {
+        if (col + w - 1 > 12) return false;
+        for (let r = row; r < row + h; r++) {
+            for (let c = col; c < col + w; c++) {
+                if (gridOccupied[`${r},${c}`]) return false;
+            }
+        }
+        return true;
+    };
+
+    const occupySlot = (row, col, w, h) => {
+        for (let r = row; r < row + h; r++) {
+            for (let c = col; c < col + w; c++) {
+                gridOccupied[`${r},${c}`] = true;
+            }
+        }
+    };
+
+    photosList.forEach(photo => {
+        const w = photo.span_cols || 3;
+        const h = photo.span_rows || 2;
+        let placed = false;
+        let r = 1;
+
+        while (!placed && r < 500) {
+            for (let c = 1; c <= 12 - w + 1; c++) {
+                if (isSlotAvailable(r, c, w, h)) {
+                    photo.col_start = c;
+                    photo.row_start = r;
+                    occupySlot(r, c, w, h);
+                    placed = true;
+                    break;
+                }
+            }
+            if (!placed) r++;
+        }
+    });
+};
+
+const saveOrderToServer = () => {
+    const order = props.photos.map((p, i) => ({
+        id: p.id,
+        display_order: i,
+        col_start: p.col_start,
+        row_start: p.row_start,
+    }));
 
     router.post('/admin/photos/reorder', { order }, {
         preserveScroll: true,
+        onSuccess: () => {
+            nextTick(updateAdminGridUnit);
+        }
+    });
+};
+
+const onDrop = (e, targetIndex) => {
+    e.preventDefault();
+    onDragEnd();
+};
+
+// --- Sélection & Actions groupées ---
+const selectedPhotoIds = ref([]);
+const bulkTagInput = ref('');
+const bulkCategoryId = ref(null);
+const showBulkTagModal = ref(false);
+const showBulkCategoryModal = ref(false);
+const confirmBulkDelete = ref(false);
+
+const isAllSelected = () => {
+    return props.photos.length > 0 && selectedPhotoIds.value.length === props.photos.length;
+};
+
+const toggleSelectAll = () => {
+    if (isAllSelected()) {
+        selectedPhotoIds.value = [];
+    } else {
+        selectedPhotoIds.value = props.photos.map(p => p.id);
+    }
+};
+
+const toggleSelectPhoto = (photoId) => {
+    const idx = selectedPhotoIds.value.indexOf(photoId);
+    if (idx > -1) {
+        selectedPhotoIds.value.splice(idx, 1);
+    } else {
+        selectedPhotoIds.value.push(photoId);
+    }
+};
+
+const isPhotoSelected = (photoId) => {
+    return selectedPhotoIds.value.includes(photoId);
+};
+
+const applyBulkFormat = (fmt) => {
+    if (selectedPhotoIds.value.length === 0) return;
+
+    props.photos.forEach(p => {
+        if (selectedPhotoIds.value.includes(p.id)) {
+            p.span_cols = fmt.cols;
+            p.span_rows = fmt.rows;
+        }
     });
 
-    draggingIndex.value = null;
-    dragOverIndex.value = null;
+    router.post('/admin/photos/bulk-action', {
+        ids: selectedPhotoIds.value,
+        action: 'set_format',
+        span_cols: fmt.cols,
+        span_rows: fmt.rows,
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            nextTick(updateAdminGridUnit);
+        }
+    });
+};
+
+const applyBulkHighlight = (status) => {
+    if (selectedPhotoIds.value.length === 0) return;
+
+    props.photos.forEach(p => {
+        if (selectedPhotoIds.value.includes(p.id)) {
+            p.is_highlighted = status;
+        }
+    });
+
+    router.post('/admin/photos/bulk-action', {
+        ids: selectedPhotoIds.value,
+        action: status ? 'set_highlight' : 'remove_highlight',
+    }, { preserveScroll: true });
+};
+
+const applyBulkCategory = () => {
+    if (selectedPhotoIds.value.length === 0) return;
+
+    const chosenCat = props.categories.find(c => c.id === bulkCategoryId.value);
+    props.photos.forEach(p => {
+        if (selectedPhotoIds.value.includes(p.id)) {
+            p.category_id = bulkCategoryId.value;
+            p.category = chosenCat || null;
+        }
+    });
+
+    router.post('/admin/photos/bulk-action', {
+        ids: selectedPhotoIds.value,
+        action: 'set_category',
+        category_id: bulkCategoryId.value,
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            showBulkCategoryModal.value = false;
+        }
+    });
+};
+
+const applyBulkInstagramTag = () => {
+    if (selectedPhotoIds.value.length === 0) return;
+
+    props.photos.forEach(p => {
+        if (selectedPhotoIds.value.includes(p.id)) {
+            p.instagram_tag = bulkTagInput.value;
+        }
+    });
+
+    router.post('/admin/photos/bulk-action', {
+        ids: selectedPhotoIds.value,
+        action: 'set_instagram_tag',
+        instagram_tag: bulkTagInput.value,
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            showBulkTagModal.value = false;
+            bulkTagInput.value = '';
+        }
+    });
+};
+
+const executeBulkDelete = () => {
+    if (selectedPhotoIds.value.length === 0) return;
+
+    router.post('/admin/photos/bulk-destroy', {
+        ids: selectedPhotoIds.value,
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            selectedPhotoIds.value = [];
+            confirmBulkDelete.value = false;
+        }
+    });
 };
 
 // Grille unitaire calculée pour la prévisualisation Admin
@@ -453,15 +695,27 @@ onUnmounted(() => {
         </div>
 
         <!-- Section Header & View Mode Switcher -->
-        <div class="card" style="margin-bottom: var(--space-lg); padding: var(--space-md) var(--space-lg);">
+        <div class="card" style="margin-bottom: var(--space-md); padding: var(--space-md) var(--space-lg);">
             <div class="flex-between" style="flex-wrap: wrap; gap: var(--space-md);">
-                <div>
-                    <h3 style="margin: 0; font-size: 1.15rem;">
-                        Galerie ({{ photos.length }} photos)
-                    </h3>
-                    <span style="font-size: 0.8rem; color: var(--text-muted);">
-                        💡 Glissez-déposez les photos pour réorganiser la mosaïque
-                    </span>
+                <div style="display: flex; align-items: center; gap: var(--space-md);">
+                    <label class="select-all-checkbox-label" title="Tout sélectionner / désélectionner">
+                        <input 
+                            type="checkbox" 
+                            class="bulk-checkbox"
+                            :checked="isAllSelected()" 
+                            @change="toggleSelectAll" 
+                        />
+                        <span style="font-size: 0.88rem; font-weight: 600;">Tout sélectionner</span>
+                    </label>
+
+                    <div style="border-left: 1px solid var(--border-color); padding-left: var(--space-md);">
+                        <h3 style="margin: 0; font-size: 1.15rem; display: inline-block;">
+                            Galerie ({{ photos.length }} photos)
+                        </h3>
+                        <span v-if="selectedPhotoIds.length > 0" class="selection-counter-badge">
+                            {{ selectedPhotoIds.length }} sélectionnée{{ selectedPhotoIds.length > 1 ? 's' : '' }}
+                        </span>
+                    </div>
                 </div>
 
                 <!-- Mode toggle -->
@@ -486,6 +740,74 @@ onUnmounted(() => {
             </div>
         </div>
 
+        <!-- Floating / Sticky Bulk Action Toolbar -->
+        <Transition name="bulk-bar">
+            <div v-if="selectedPhotoIds.length > 0" class="bulk-actions-toolbar card">
+                <div class="bulk-toolbar-content">
+                    <div class="bulk-toolbar-info">
+                        <span class="bulk-icon">✨</span>
+                        <div>
+                            <strong>{{ selectedPhotoIds.length }}</strong> photo{{ selectedPhotoIds.length > 1 ? 's' : '' }} sélectionnée{{ selectedPhotoIds.length > 1 ? 's' : '' }}
+                        </div>
+                    </div>
+
+                    <div class="bulk-toolbar-buttons">
+                        <!-- Formats groupés -->
+                        <div class="bulk-group">
+                            <span class="bulk-group-label">Format :</span>
+                            <button
+                                v-for="fmt in PHOTO_FORMATS"
+                                :key="fmt.id"
+                                type="button"
+                                class="bulk-btn"
+                                @click="applyBulkFormat(fmt)"
+                                :title="fmt.label"
+                            >
+                                {{ fmt.icon }} {{ fmt.shortLabel }}
+                            </button>
+                        </div>
+
+                        <div class="bulk-divider"></div>
+
+                        <!-- Catégorie groupée -->
+                        <button type="button" class="bulk-btn" @click="showBulkCategoryModal = true">
+                            🏷️ Catégorie
+                        </button>
+
+                        <div class="bulk-divider"></div>
+
+                        <!-- Coups de cœur -->
+                        <div class="bulk-group">
+                            <button type="button" class="bulk-btn" @click="applyBulkHighlight(true)" title="Ajouter aux coups de cœur d'accueil">
+                                ★ Coup de cœur
+                            </button>
+                            <button type="button" class="bulk-btn" @click="applyBulkHighlight(false)" title="Retirer des coups de cœur">
+                                ☆ Retirer
+                            </button>
+                        </div>
+
+                        <div class="bulk-divider"></div>
+
+                        <!-- Tag Instagram -->
+                        <button type="button" class="bulk-btn" @click="showBulkTagModal = true">
+                            📸 Tag Insta
+                        </button>
+
+                        <div class="bulk-divider"></div>
+
+                        <!-- Supprimer -->
+                        <button type="button" class="bulk-btn bulk-btn-danger" @click="confirmBulkDelete = true">
+                            🗑️ Supprimer ({{ selectedPhotoIds.length }})
+                        </button>
+
+                        <button type="button" class="bulk-btn-close" @click="selectedPhotoIds = []" title="Désélectionner tout">
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Transition>
+
         <!-- 1. VUE MOSAÏQUE RÉELLE (WYSIWYG) -->
         <div v-if="photos.length > 0 && viewMode === 'mosaic'">
             <div class="admin-mosaic-grid" ref="adminGridRef">
@@ -499,14 +821,17 @@ onUnmounted(() => {
                         {
                             'is-dragging': draggingIndex === index,
                             'is-drag-over': dragOverIndex === index,
-                            'is-highlighted': photo.is_highlighted
+                            'is-highlighted': photo.is_highlighted,
+                            'is-selected': isPhotoSelected(photo.id)
                         }
                     ]"
+                    :style="getItemGridStyle(photo)"
                     draggable="true"
                     @dragstart="onDragStart($event, index)"
-                    @dragover="onDragOver($event, index)"
-                    @dragleave="onDragLeave"
-                    @drop="onDrop($event, index)"
+                    @dragenter.prevent="onDragEnterItem($event, index)"
+                    @dragover.prevent="onDragOver($event, index)"
+                    @dragend="onDragEnd"
+                    @drop.prevent="onDrop($event, index)"
                 >
                     <div class="admin-mosaic-img-wrap">
                         <img
@@ -517,8 +842,19 @@ onUnmounted(() => {
                     </div>
 
                     <div class="admin-mosaic-topbar">
-                        <div class="admin-mosaic-badge-order">
-                            <span class="drag-handle">⠿</span> #{{ index + 1 }}
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <label class="item-checkbox-wrap" @click.stop>
+                                <input 
+                                    type="checkbox" 
+                                    class="bulk-checkbox"
+                                    :checked="isPhotoSelected(photo.id)" 
+                                    @change="toggleSelectPhoto(photo.id)" 
+                                />
+                            </label>
+
+                            <div class="admin-mosaic-badge-order">
+                                <span class="drag-handle">⠿</span> #{{ index + 1 }}
+                            </div>
                         </div>
                         <div class="admin-mosaic-top-actions">
                             <span v-if="photo.category" class="badge badge-primary" style="font-size: 0.65rem;">
@@ -583,18 +919,30 @@ onUnmounted(() => {
                 class="photo-compact-card"
                 draggable="true"
                 @dragstart="onDragStart($event, index)"
-                @dragover="onDragOver($event, index)"
-                @dragleave="onDragLeave"
-                @drop="onDrop($event, index)"
+                @dragenter.prevent="onDragEnterItem($event, index)"
+                @dragover.prevent="onDragOver($event, index)"
+                @dragend="onDragEnd"
+                @drop.prevent="onDrop($event, index)"
                 :class="{
                     'is-dragging': draggingIndex === index,
                     'is-drag-over': dragOverIndex === index,
-                    'is-highlighted': photo.is_highlighted
+                    'is-highlighted': photo.is_highlighted,
+                    'is-selected': isPhotoSelected(photo.id)
                 }"
             >
                 <div class="photo-compact-img">
                     <img :src="`/storage/${photo.thumbnail_path || photo.image_path}`" :alt="photo.caption || 'Photo'" />
-                    <div class="photo-compact-order">#{{ index + 1 }}</div>
+                    <div class="photo-compact-order" style="display: flex; align-items: center; gap: 4px;">
+                        <label class="item-checkbox-wrap-compact" @click.stop>
+                            <input 
+                                type="checkbox" 
+                                class="bulk-checkbox"
+                                :checked="isPhotoSelected(photo.id)" 
+                                @change="toggleSelectPhoto(photo.id)" 
+                            />
+                        </label>
+                        <span>#{{ index + 1 }}</span>
+                    </div>
                     <div class="photo-compact-badges">
                         <span v-if="photo.category" class="badge badge-primary" style="font-size: 0.65rem;">{{ photo.category.name }}</span>
                         <span v-if="photo.is_highlighted" class="badge badge-accent" style="font-size: 0.65rem;">★</span>
@@ -706,7 +1054,63 @@ onUnmounted(() => {
             </form>
         </AdminModal>
 
-        <!-- Deletion Confirmation -->
+        <!-- Bulk Category Modal -->
+        <AdminModal :show="showBulkCategoryModal" @close="showBulkCategoryModal = false" title="Modifier la catégorie groupée">
+            <div>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: var(--space-md);">
+                    Attribuer une catégorie aux <strong>{{ selectedPhotoIds.length }}</strong> photos sélectionnées.
+                </p>
+                <div class="form-group">
+                    <label class="form-label">Catégorie</label>
+                    <PremiumSelect 
+                        v-model="bulkCategoryId"
+                        :options="categories"
+                        placeholder="Choisir une catégorie"
+                    />
+                </div>
+                <div style="display: flex; gap: var(--space-sm); justify-content: flex-end; margin-top: var(--space-lg);">
+                    <button type="button" class="btn btn-ghost" @click="showBulkCategoryModal = false">Annuler</button>
+                    <button type="button" class="btn btn-primary" @click="applyBulkCategory">
+                        Appliquer aux {{ selectedPhotoIds.length }} photos
+                    </button>
+                </div>
+            </div>
+        </AdminModal>
+
+        <!-- Bulk Instagram Tag Modal -->
+        <AdminModal :show="showBulkTagModal" @close="showBulkTagModal = false" title="Modifier le Tag Instagram groupé">
+            <div>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: var(--space-md);">
+                    Définir le même tag Instagram pour les <strong>{{ selectedPhotoIds.length }}</strong> photos sélectionnées (ou laisser vide pour retirer le tag).
+                </p>
+                <div class="form-group">
+                    <label class="form-label">Tag Instagram</label>
+                    <input 
+                        type="text" 
+                        v-model="bulkTagInput" 
+                        placeholder="@username ou laisser vide" 
+                    />
+                </div>
+                <div style="display: flex; gap: var(--space-sm); justify-content: flex-end; margin-top: var(--space-lg);">
+                    <button type="button" class="btn btn-ghost" @click="showBulkTagModal = false">Annuler</button>
+                    <button type="button" class="btn btn-primary" @click="applyBulkInstagramTag">
+                        Appliquer aux {{ selectedPhotoIds.length }} photos
+                    </button>
+                </div>
+            </div>
+        </AdminModal>
+
+        <!-- Bulk Deletion Confirmation -->
+        <ConfirmModal
+            :show="confirmBulkDelete"
+            title="Supprimer les photos sélectionnées"
+            :message="`Êtes-vous sûr de vouloir supprimer définitivement ces ${selectedPhotoIds.length} photos ? Cette action est irréversible.`"
+            confirmText="Supprimer tout"
+            @close="confirmBulkDelete = false"
+            @confirm="executeBulkDelete"
+        />
+
+        <!-- Deletion Confirmation Single -->
         <ConfirmModal
             :show="!!confirmDeletion"
             title="Supprimer la photo"
@@ -778,14 +1182,17 @@ onUnmounted(() => {
 }
 
 .admin-mosaic-item.is-dragging {
-    opacity: 0.4;
+    opacity: 0.35;
     cursor: grabbing;
-    transform: scale(0.97);
+    transform: scale(0.96);
+    filter: brightness(0.8);
+    box-shadow: 0 0 0 2px var(--primary), 0 10px 30px rgba(0, 0, 0, 0.5);
+    z-index: 100;
 }
 
 .admin-mosaic-item.is-drag-over {
-    border-color: var(--accent) !important;
-    box-shadow: 0 0 20px var(--accent-glow) !important;
+    border-color: var(--primary-light) !important;
+    box-shadow: 0 0 25px var(--primary-glow-strong) !important;
     transform: scale(1.02);
 }
 
@@ -1172,5 +1579,177 @@ onUnmounted(() => {
 .batch-percent {
     font-weight: 700;
     color: var(--text-color);
+}
+
+/* --- Sélection & Barre d'actions groupées --- */
+.select-all-checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    color: var(--text-color);
+}
+
+.selection-counter-badge {
+    display: inline-block;
+    margin-left: var(--space-sm);
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.18rem 0.6rem;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    color: white;
+    border-radius: var(--radius-full);
+    box-shadow: 0 2px 8px var(--primary-glow);
+}
+
+.bulk-checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary);
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.item-checkbox-wrap {
+    display: flex;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.75);
+    padding: 3px 6px;
+    border-radius: var(--radius-sm);
+    backdrop-filter: blur(4px);
+    cursor: pointer;
+}
+
+.item-checkbox-wrap-compact {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.admin-mosaic-item.is-selected {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 2px var(--primary), 0 8px 30px rgba(99, 102, 241, 0.4) !important;
+}
+
+.photo-compact-card.is-selected {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 2px var(--primary) !important;
+}
+
+.bulk-actions-toolbar {
+    position: sticky;
+    top: calc(var(--nav-height) + 16px);
+    z-index: 100;
+    background: rgba(16, 20, 38, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--primary-light);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 20px var(--primary-glow);
+    padding: var(--space-sm) var(--space-lg);
+    margin-bottom: var(--space-lg);
+}
+
+.bulk-toolbar-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+}
+
+.bulk-toolbar-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: 0.95rem;
+    color: var(--text-color);
+}
+
+.bulk-icon {
+    font-size: 1.2rem;
+}
+
+.bulk-toolbar-buttons {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.bulk-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.bulk-group-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-right: 4px;
+}
+
+.bulk-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--border-color);
+    margin: 0 4px;
+}
+
+.bulk-btn {
+    border: 1px solid var(--border-color);
+    background: var(--bg-deep);
+    color: var(--text-color);
+    padding: 0.35rem 0.65rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.bulk-btn:hover {
+    background: var(--surface-color);
+    border-color: var(--primary-light);
+    color: white;
+}
+
+.bulk-btn-danger {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.35);
+    color: #fca5a5;
+}
+
+.bulk-btn-danger:hover {
+    background: var(--danger);
+    color: white;
+    border-color: var(--danger);
+}
+
+.bulk-btn-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0 6px;
+    line-height: 1;
+}
+
+.bulk-btn-close:hover {
+    color: white;
+}
+
+/* Transitions Toolbar */
+.bulk-bar-enter-active,
+.bulk-bar-leave-active {
+    transition: all 0.3s ease;
+}
+
+.bulk-bar-enter-from,
+.bulk-bar-leave-to {
+    opacity: 0;
+    transform: translateY(-15px);
 }
 </style>

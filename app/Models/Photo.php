@@ -9,6 +9,7 @@ class Photo extends Model
     protected $fillable = [
         'project_id', 'category_id', 'image_path', 'thumbnail_path',
         'caption', 'instagram_tag', 'span_cols', 'span_rows',
+        'col_start', 'row_start',
         'display_order', 'is_highlighted', 'is_cover'
     ];
 
@@ -17,6 +18,8 @@ class Photo extends Model
         'is_cover' => 'boolean',
         'span_cols' => 'integer',
         'span_rows' => 'integer',
+        'col_start' => 'integer',
+        'row_start' => 'integer',
         'display_order' => 'integer',
     ];
 

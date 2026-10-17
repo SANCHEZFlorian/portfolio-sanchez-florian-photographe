@@ -10,6 +10,7 @@ const props = defineProps({
 const emit = defineEmits(['photoClick']);
 
 const gridRef = ref(null);
+const currentCols = ref(12);
 let resizeObserver = null;
 
 const updateGridUnit = () => {
@@ -18,9 +19,29 @@ const updateGridUnit = () => {
     if (!width) return;
     const gap = 16;
     const cols = width > 900 ? 12 : (width > 580 ? 6 : 1);
+    currentCols.value = cols;
     const colWidth = (width - (cols - 1) * gap) / cols;
     gridRef.value.style.setProperty('--grid-unit', `${colWidth}px`);
     gridRef.value.style.setProperty('--grid-cols', cols);
+};
+
+const getPhotoStyle = (photo) => {
+    // Only apply explicit col/row start on desktop 12-column layout to prevent breaking responsive flow
+    if (currentCols.value === 12 && photo.col_start && photo.row_start) {
+        let c = photo.span_cols || 3;
+        let r = photo.span_rows || 2;
+        if (c === 12 && r === 8) { c = 6; r = 4; }
+        else if (c === 6 && r === 9) { c = 4; r = 6; }
+        else if (c === 2 && r === 1) { c = 6; r = 4; }
+        else if (c === 1 && r === 2) { c = 4; r = 6; }
+        else if (c === 1 && r === 1) { c = 3; r = 2; }
+
+        return {
+            gridColumn: `${photo.col_start} / span ${c}`,
+            gridRow: `${photo.row_start} / span ${r}`,
+        };
+    }
+    return {};
 };
 
 const getPhotoClasses = (photo) => {
@@ -86,6 +107,7 @@ watch(() => props.photos, () => {
             :key="photo.id"
             class="grid-item"
             :class="getPhotoClasses(photo)"
+            :style="getPhotoStyle(photo)"
             @click="emit('photoClick', photo)"
         >
             <div class="grid-image-container">

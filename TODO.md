@@ -34,3 +34,21 @@ Suivi des galeries, optimisation des clichés et expérience visuelle.
   - Conservation rigoureuse de l'ordre d'origine de sélection de chaque photo (`display_order` continu garanti).
   - Barre de progression animée en temps réel avec compteurs dynamiques (photos envoyées, lot en cours, pourcentage d'avancement).
   - Intégré dans l'édition des projets ([`Admin/Project/Edit.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Admin/Project/Edit.vue)) et dans la galerie vrac ([`Admin/Standalone/Index.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Admin/Standalone/Index.vue)).
+- [x] **Actions groupées & sélection multiple (Bulk Actions)** :
+  - Cases à cocher individuelles sur chaque carte (mosaïque en direct & grille compacte) + case globale « Tout sélectionner ».
+  - Barre d'outils flottante / sticky avec compteur dynamique de photos sélectionnées.
+  - Actions instantanées : attribution d'un format en masse (*Petit/Grand Paysage/Portrait*), statut coup de cœur (*Star*), tag Instagram, catégorie (pour les photos en vrac) et suppression groupée avec modale de confirmation.
+- [x] **Positionnement 2D libre en mosaïque (`col_start` / `row_start`) & Adaptation Responsive** :
+  - Migration de base de données ajoutant les coordonnées 2D d'ancrage (`col_start`, `row_start`) dans la table `photos`.
+  - Résolution du problème de réorganisation dense : les photos restent à leur emplacement 2D exact (en-dessous ou à côté d'une photo cible) au lieu d'être aspirées par les trous du flux automatique.
+  - Adaptation responsive intelligente :
+    - **Desktop (12 colonnes)** : respect strict des coordonnées 2D (`col_start` / `row_start`) pour reproduire fidèlement la composition artistique choisie dans le back-office.
+    - **Tablette (6 colonnes)** & **Mobile (1 colonne)** : désactivation automatique et transparente des coordonnées 2D absolues pour basculer en flux fluide, évitant tout débordement horizontal ou espace vide disproportionné sur smartphone.
+  - Résolution de l'écrasement en carré 1×1 : correction de la syntaxe CSS Grid (`grid-column: X / span W` et `grid-row: Y / span H`) pour préserver l'envergure des formats et l'accessibilité des boutons d'actions.
+- [x] **Déplacement dynamique en direct style widgets Android / iOS** :
+  - Réorganisation fluide et instantanée des photos dès le survol (`@dragenter`) pendant le maintien de la souris.
+  - Décalage visuel en temps réel des photos environnantes pour faire immédiatement de la place au nouvel emplacement.
+  - Feedback visuel clair (effet d'ombre, halo et mise en avant de la photo déplacée).
+  - Sauvegarde automatique en arrière-plan au relâchement (`@dragend`) sans rechargement de page.
+
+
