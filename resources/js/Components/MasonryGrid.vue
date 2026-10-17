@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import gsap from 'gsap';
 
 const props = defineProps({
@@ -10,28 +10,70 @@ const props = defineProps({
 const emit = defineEmits(['photoClick']);
 
 const gridRef = ref(null);
+let resizeObserver = null;
+
+const updateGridUnit = () => {
+    if (!gridRef.value) return;
+    const width = gridRef.value.clientWidth;
+    if (!width) return;
+    const gap = 16;
+    const cols = width > 900 ? 12 : (width > 580 ? 6 : 1);
+    const colWidth = (width - (cols - 1) * gap) / cols;
+    gridRef.value.style.setProperty('--grid-unit', `${colWidth}px`);
+    gridRef.value.style.setProperty('--grid-cols', cols);
+};
+
+const getPhotoClasses = (photo) => {
+    let c = photo.span_cols || 3;
+    let r = photo.span_rows || 2;
+
+    // Rétrocompatibilité avec les versions précédentes
+    if (c === 12 && r === 8) { c = 6; r = 4; } // Ancien Grand Paysage -> Grand Paysage 6x4
+    else if (c === 6 && r === 9) { c = 4; r = 6; } // Ancien Grand Portrait -> Grand Portrait 4x6
+    else if (c === 2 && r === 1) { c = 6; r = 4; } // Ancien 2x1 -> Grand Paysage
+    else if (c === 1 && r === 2) { c = 4; r = 6; } // Ancien 1x2 -> Grand Portrait
+    else if (c === 1 && r === 1) { c = 3; r = 2; } // Ancien 1x1 -> Petit Paysage
+
+    return [`span-c-${c}`, `span-r-${r}`];
+};
 
 onMounted(() => {
+    updateGridUnit();
+
+    if (window.ResizeObserver && gridRef.value) {
+        resizeObserver = new ResizeObserver(() => updateGridUnit());
+        resizeObserver.observe(gridRef.value);
+    }
+
     if (props.animated && gridRef.value) {
         gsap.from(gridRef.value.querySelectorAll('.grid-item'), {
-            y: 40,
+            y: 35,
             opacity: 0,
-            duration: 0.8,
-            stagger: 0.08,
+            duration: 0.7,
+            stagger: 0.04,
             ease: 'power3.out',
-            delay: 0.2,
+            delay: 0.1,
+            clearProps: 'transform,opacity',
         });
     }
 });
 
+onUnmounted(() => {
+    if (resizeObserver) {
+        resizeObserver.disconnect();
+    }
+});
+
 watch(() => props.photos, () => {
+    updateGridUnit();
     if (props.animated && gridRef.value) {
         gsap.from(gridRef.value.querySelectorAll('.grid-item'), {
-            y: 30,
+            y: 25,
             opacity: 0,
-            duration: 0.6,
-            stagger: 0.05,
+            duration: 0.5,
+            stagger: 0.03,
             ease: 'power3.out',
+            clearProps: 'transform,opacity',
         });
     }
 }, { flush: 'post' });
@@ -43,7 +85,7 @@ watch(() => props.photos, () => {
             v-for="photo in photos"
             :key="photo.id"
             class="grid-item"
-            :class="[`span-c-${photo.span_cols || 1}`, `span-r-${photo.span_rows || 1}`]"
+            :class="getPhotoClasses(photo)"
             @click="emit('photoClick', photo)"
         >
             <div class="grid-image-container">
@@ -108,10 +150,12 @@ watch(() => props.photos, () => {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center;
     opacity: 0;
-    transition: opacity 1s var(--ease-out), transform 0.6s var(--ease-out);
+    transition: opacity 0.8s var(--ease-out), transform 0.6s var(--ease-out);
     position: relative;
     z-index: 2;
+    display: block;
 }
 
 .grid-item img.loaded {
@@ -119,7 +163,7 @@ watch(() => props.photos, () => {
 }
 
 .grid-item:hover img.loaded {
-    transform: scale(1.05);
+    transform: scale(1.03);
 }
 
 .overlay-content {

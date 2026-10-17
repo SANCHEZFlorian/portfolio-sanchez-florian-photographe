@@ -32,11 +32,17 @@ class PhotoController extends Controller
                 $thumbPath = 'projects/' . $project->id . '/thumbs/' . preg_replace('/\.[^.]+$/', '.webp', basename($path));
                 $this->generateThumbnail($file, $thumbPath);
 
+                // Auto-detect orientation: Landscape -> 3x2 (Petit Paysage), Portrait -> 2x3 (Petit Portrait)
+                $imageSize = @getimagesize($file->getRealPath());
+                $isLandscape = (!$imageSize || $imageSize[0] >= $imageSize[1]);
+                $cols = $isLandscape ? 3 : 2;
+                $rows = $isLandscape ? 2 : 3;
+
                 $project->photos()->create([
                     'image_path' => $path,
                     'thumbnail_path' => $thumbPath,
-                    'span_cols' => 1,
-                    'span_rows' => 1,
+                    'span_cols' => $cols,
+                    'span_rows' => $rows,
                     'display_order' => ++$order,
                 ]);
             }
@@ -54,8 +60,8 @@ class PhotoController extends Controller
         $validated = $request->validate([
             'caption' => 'nullable|string',
             'instagram_tag' => 'nullable|string',
-            'span_cols' => 'required|integer|min:1|max:4',
-            'span_rows' => 'required|integer|min:1|max:4',
+            'span_cols' => 'required|integer|min:1|max:12',
+            'span_rows' => 'required|integer|min:1|max:12',
             'display_order' => 'required|integer',
             'is_highlighted' => 'sometimes|boolean',
             'is_cover' => 'sometimes|boolean',

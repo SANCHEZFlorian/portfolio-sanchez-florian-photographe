@@ -139,19 +139,24 @@ const openLightbox = (photo) => {
                             </div>
                         </div>
                         <div class="project-card-info">
-                            <span v-if="project.category" class="badge badge-primary">{{ project.category.name }}</span>
-                            <h3>{{ project.title }}</h3>
-                            <div class="project-card-meta">
-                                <span v-if="project.date">{{ new Date(project.date).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) }}</span>
-                                <span v-if="project.photo_count">{{ project.photo_count }} photos</span>
+                            <div class="project-card-main">
+                                <span v-if="project.category" class="badge badge-primary">{{ project.category.name }}</span>
+                                <h3>{{ project.title }}</h3>
                             </div>
-                            <div v-if="project.instagram_url" class="project-card-insta" @click.stop.prevent="window.open(project.instagram_url, '_blank')">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-                                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-                                    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
-                                </svg>
-                                <span>{{ getInstaUsername(project.instagram_url) }}</span>
+                            
+                            <div class="project-card-footer">
+                                <div class="project-card-meta">
+                                    <span v-if="project.date">{{ new Date(project.date).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) }}</span>
+                                    <span v-if="project.photo_count">{{ project.photo_count }} photos</span>
+                                </div>
+                                <div v-if="project.instagram_url" class="project-card-insta" @click.stop.prevent="window.open(project.instagram_url, '_blank')">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                                        <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                                        <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                                    </svg>
+                                    <span>{{ getInstaUsername(project.instagram_url) }}</span>
+                                </div>
                             </div>
                         </div>
                     </Link>
@@ -368,7 +373,9 @@ const openLightbox = (photo) => {
 }
 
 .project-card {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
     text-decoration: none;
     color: var(--text-color);
     border-radius: var(--radius-lg);
@@ -429,6 +436,19 @@ const openLightbox = (photo) => {
 
 .project-card-info {
     padding: var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.project-card-main {
+    margin-bottom: var(--space-md);
+}
+
+.project-card-footer {
+    margin-top: auto;
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--border-subtle);
 }
 
 .project-card-info .badge {
