@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { Head, useForm, Link, router } from '@inertiajs/vue3';
+import axios from 'axios';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AdminModal from '@/Components/AdminModal.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
@@ -83,54 +84,142 @@ const submitMeta = () => {
     form.put(`/admin/projects/${props.project.id}`, { preserveScroll: true });
 };
 
-// Photo upload
+// Photo upload & batch processing
 const uploading = ref(false);
 const isDragOver = ref(false);
+const uploadProgress = ref(null); // { currentBatch, totalBatches, uploadedCount, totalCount, percent, currentFileName }
+const uploadError = ref(null);
+
+const MAX_FILES_PER_BATCH = 15; // Max 15 photos per batch (PHP max_file_uploads is 20)
+const MAX_BYTES_PER_BATCH = 35 * 1024 * 1024; // 35 Mo max par lot (PHP post_max_size safe)
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 Mo max par photo
+
+const createBatches = (files) => {
+    const batches = [];
+    let currentBatch = [];
+    let currentBatchBytes = 0;
+
+    for (const file of files) {
+        const exceedsFileCount = currentBatch.length >= MAX_FILES_PER_BATCH;
+        const exceedsByteSize = (currentBatchBytes + file.size) > MAX_BYTES_PER_BATCH && currentBatch.length > 0;
+
+        if (exceedsFileCount || exceedsByteSize) {
+            batches.push(currentBatch);
+            currentBatch = [];
+            currentBatchBytes = 0;
+        }
+
+        currentBatch.push(file);
+        currentBatchBytes += file.size;
+    }
+
+    if (currentBatch.length > 0) {
+        batches.push(currentBatch);
+    }
+
+    return batches;
+};
 
 const handleDrop = (e) => {
     isDragOver.value = false;
-    const files = Array.from(e.dataTransfer.files);
+    const files = Array.from(e.dataTransfer.files || []);
     if (files.length > 0) {
         processUpload(files);
     }
 };
 
 const uploadPhotos = (e) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files || []);
     if (files.length > 0) {
         processUpload(files);
         e.target.value = '';
     }
 };
 
-const processUpload = (files) => {
-    const MAX_SIZE = 100 * 1024 * 1024; // 100MB
-    let totalSize = 0;
+const processUpload = async (files) => {
+    if (uploading.value) return;
 
-    for (const file of files) {
-        if (file.size > MAX_SIZE) {
-            alert(`Le fichier ${file.name} est trop lourd (max 100Mo).`);
-            return;
-        }
-        totalSize += file.size;
-    }
+    uploadError.value = null;
 
-    if (totalSize > MAX_SIZE) {
-        alert("Le total des fichiers dépasse 100Mo. Veuillez uploader en plusieurs fois.");
+    // Filter valid image files
+    const validFiles = files.filter(f => f.type ? f.type.startsWith('image/') : true);
+    if (validFiles.length === 0) {
+        uploadError.value = "Aucun fichier image valide sélectionné.";
         return;
     }
 
-    const formData = new FormData();
-    files.forEach(f => formData.append('photos[]', f));
+    // Check individual file size
+    for (const file of validFiles) {
+        if (file.size > MAX_FILE_SIZE) {
+            uploadError.value = `Le fichier "${file.name}" dépasse la limite autorisée de 100 Mo.`;
+            return;
+        }
+    }
 
+    const batches = createBatches(validFiles);
     uploading.value = true;
-    router.post(`/admin/projects/${props.project.id}/photos`, formData, {
-        forceFormData: true,
-        preserveScroll: true,
-        onFinish: () => {
-            uploading.value = false;
-        },
-    });
+
+    let uploadedCount = 0;
+    const totalCount = validFiles.length;
+
+    uploadProgress.value = {
+        currentBatch: 0,
+        totalBatches: batches.length,
+        uploadedCount: 0,
+        totalCount,
+        percent: 0,
+        message: 'Initialisation des envois...'
+    };
+
+    try {
+        for (let i = 0; i < batches.length; i++) {
+            const batch = batches[i];
+            const batchNumber = i + 1;
+
+            uploadProgress.value = {
+                currentBatch: batchNumber,
+                totalBatches: batches.length,
+                uploadedCount,
+                totalCount,
+                percent: Math.round((uploadedCount / totalCount) * 100),
+                message: `Envoi du lot ${batchNumber}/${batches.length} (${batch.length} photo${batch.length > 1 ? 's' : ''})...`
+            };
+
+            const formData = new FormData();
+            batch.forEach(f => formData.append('photos[]', f));
+
+            await axios.post(`/admin/projects/${props.project.id}/photos`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+
+            uploadedCount += batch.length;
+            uploadProgress.value.uploadedCount = uploadedCount;
+            uploadProgress.value.percent = Math.round((uploadedCount / totalCount) * 100);
+        }
+
+        uploadProgress.value.message = 'Finalisation et actualisation...';
+        uploadProgress.value.percent = 100;
+
+        // Reload current page with Inertia to reflect newly uploaded photos and orders
+        router.reload({
+            preserveScroll: true,
+            onFinish: () => {
+                uploading.value = false;
+                uploadProgress.value = null;
+            }
+        });
+    } catch (err) {
+        console.error('Batch upload error:', err);
+        const serverMsg = err.response?.data?.message || err.message || 'Erreur inconnue lors du téléversement.';
+        uploadError.value = `Erreur lors de l'envoi du lot : ${serverMsg}`;
+        uploading.value = false;
+        // Still reload to keep any photos from batches that already succeeded
+        if (uploadedCount > 0) {
+            router.reload({ preserveScroll: true });
+        }
+    }
 };
 
 // Photo editing modal
@@ -388,36 +477,76 @@ onUnmounted(() => {
 
             <!-- Right: Photos Manager -->
             <div>
-                <!-- Upload Zone -->
-                <div class="card" style="margin-bottom: var(--space-xl);">
-                    <div class="flex-between" style="margin-bottom: var(--space-md);">
-                        <h3 style="margin: 0;">Ajouter des photos</h3>
-                        <span style="font-size: 0.85rem; color: var(--text-muted);">
-                            Format détecté automatiquement à l'upload (Paysage / Portrait)
-                        </span>
+                    <!-- Upload Zone -->
+                    <div class="card" style="margin-bottom: var(--space-xl);">
+                        <div class="flex-between" style="margin-bottom: var(--space-md); flex-wrap: wrap; gap: var(--space-xs);">
+                            <h3 style="margin: 0;">Ajouter des photos</h3>
+                            <span style="font-size: 0.85rem; color: var(--text-muted);">
+                                Découpage automatique par lots • Aucun rognage • WebP optimisé
+                            </span>
+                        </div>
+
+                        <!-- Error alert if upload failed -->
+                        <div v-if="uploadError" class="upload-error-banner" style="margin-bottom: var(--space-md);">
+                            <span>⚠️ {{ uploadError }}</span>
+                            <button type="button" class="btn-dismiss-error" @click="uploadError = null">✕</button>
+                        </div>
+
+                        <label 
+                            class="upload-zone" 
+                            :class="{ active: uploading || isDragOver, disabled: uploading }"
+                            @dragover.prevent="!uploading && (isDragOver = true)"
+                            @dragleave.prevent="isDragOver = false"
+                            @drop.prevent="!uploading && handleDrop($event)"
+                        >
+                            <input 
+                                type="file" 
+                                multiple 
+                                accept="image/*" 
+                                @change="uploadPhotos" 
+                                :disabled="uploading"
+                                style="display: none;" 
+                            />
+                            
+                            <!-- Progress state -->
+                            <div v-if="uploading && uploadProgress" class="upload-progress-box">
+                                <div class="upload-progress-header">
+                                    <span class="upload-spinner-icon">⏳</span>
+                                    <span class="upload-progress-title">
+                                        {{ uploadProgress.message }}
+                                    </span>
+                                </div>
+
+                                <div class="batch-progress-bar">
+                                    <div 
+                                        class="batch-progress-fill" 
+                                        :style="{ width: `${uploadProgress.percent}%` }"
+                                    ></div>
+                                </div>
+
+                                <div class="upload-progress-footer">
+                                    <span>
+                                        📸 <strong>{{ uploadProgress.uploadedCount }}</strong> / {{ uploadProgress.totalCount }} photos
+                                    </span>
+                                    <span v-if="uploadProgress.totalBatches > 1" class="batch-badge">
+                                        Lot {{ uploadProgress.currentBatch }} / {{ uploadProgress.totalBatches }}
+                                    </span>
+                                    <span class="batch-percent">{{ uploadProgress.percent }}%</span>
+                                </div>
+                            </div>
+
+                            <!-- Idle state -->
+                            <div v-else>
+                                <div style="font-size: 2rem; margin-bottom: var(--space-sm);">📷</div>
+                                <div style="color: var(--text-secondary); font-weight: 500;">
+                                    {{ isDragOver ? 'Relâchez pour uploader !' : 'Cliquez ou glissez vos photos ici' }}
+                                </div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: var(--space-xs);">
+                                    Glissez autant de photos que vous voulez (60+, 100+...) — Réparties automatiquement en petits paquets
+                                </div>
+                            </div>
+                        </label>
                     </div>
-                    <label 
-                        class="upload-zone" 
-                        :class="{ active: uploading || isDragOver }"
-                        @dragover.prevent="isDragOver = true"
-                        @dragleave.prevent="isDragOver = false"
-                        @drop.prevent="handleDrop"
-                    >
-                        <input type="file" multiple accept="image/*" @change="uploadPhotos" style="display: none;" />
-                        <div v-if="uploading" style="color: var(--accent);">
-                            ⏳ Téléversement et optimisation WebP en cours...
-                        </div>
-                        <div v-else>
-                            <div style="font-size: 2rem; margin-bottom: var(--space-sm);">📷</div>
-                            <div style="color: var(--text-secondary); font-weight: 500;">
-                                {{ isDragOver ? 'Relâchez pour uploader !' : 'Cliquez ou glissez vos photos ici' }}
-                            </div>
-                            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: var(--space-xs);">
-                                Cadrage original 100% préservé — Fichiers optimisés automatiquement
-                            </div>
-                        </div>
-                    </label>
-                </div>
 
                 <!-- Photos Section Header & View Mode Switcher -->
                 <div class="card" style="margin-bottom: var(--space-lg); padding: var(--space-md) var(--space-lg);">
@@ -1065,6 +1194,104 @@ onUnmounted(() => {
     font-size: 0.75rem;
     color: var(--text-muted);
     margin-top: 2px;
+}
+
+/* --- Batch Upload Progress & Feedback --- */
+.upload-zone.disabled {
+    cursor: not-allowed;
+    pointer-events: none;
+    opacity: 0.9;
+}
+
+.upload-error-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    font-size: 0.88rem;
+}
+
+.btn-dismiss-error {
+    background: none;
+    border: none;
+    color: #fca5a5;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+
+.upload-progress-box {
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: var(--space-sm) 0;
+}
+
+.upload-progress-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-md);
+}
+
+.upload-spinner-icon {
+    font-size: 1.3rem;
+    animation: pulse 1.5s infinite;
+}
+
+.upload-progress-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.batch-progress-bar {
+    width: 100%;
+    height: 10px;
+    background: var(--bg-deep);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+    margin-bottom: var(--space-sm);
+}
+
+.batch-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+    border-radius: var(--radius-full);
+    transition: width 0.3s ease;
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.upload-progress-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+.batch-badge {
+    background: rgba(99, 102, 241, 0.18);
+    color: var(--primary-light);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-weight: 600;
+    font-size: 0.78rem;
+}
+
+.batch-percent {
+    font-weight: 700;
+    color: var(--text-color);
 }
 
 @media (max-width: 1024px) {

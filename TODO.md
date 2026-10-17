@@ -28,3 +28,9 @@ Suivi des galeries, optimisation des clichés et expérience visuelle.
   - Sélecteurs de formats instantanés à 4 options claires : *Petit Paysage*, *Grand Paysage*, *Petit Portrait*, *Grand Portrait*.
   - Barre d'action et sélecteurs de format doux au survol pour garder les clichés dégagés et lisibles.
   - Mode commutable avec la « Grille compacte ».
+- [x] **Système d'importation par lots automatiques (Chunked / Batch Upload)** :
+  - Découpage automatique et transparent des téléversements volumineux (ex: 60+, 100+ photos) en petits paquets séquentiels (max 15 photos et 35 Mo par lot).
+  - Contournement sécurisé de la limite PHP native (`max_file_uploads = 20` et `post_max_size`) sans risque de blocage serveur.
+  - Conservation rigoureuse de l'ordre d'origine de sélection de chaque photo (`display_order` continu garanti).
+  - Barre de progression animée en temps réel avec compteurs dynamiques (photos envoyées, lot en cours, pourcentage d'avancement).
+  - Intégré dans l'édition des projets ([`Admin/Project/Edit.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Admin/Project/Edit.vue)) et dans la galerie vrac ([`Admin/Standalone/Index.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Admin/Standalone/Index.vue)).
