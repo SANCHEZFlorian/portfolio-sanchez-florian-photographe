@@ -1,11 +1,26 @@
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import { Head, useForm, Link, router } from '@inertiajs/vue3';
 import axios from 'axios';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AdminModal from '@/Components/AdminModal.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
 import PremiumSelect from '@/Components/PremiumSelect.vue';
+import {
+    PhEye,
+    PhArrowLeft,
+    PhCamera,
+    PhUploadSimple,
+    PhPalette,
+    PhSparkle,
+    PhSquaresFour,
+    PhRows,
+    PhCompass,
+    PhInstagramLogo,
+    PhTrash,
+    PhPencilSimple,
+    PhImages,
+} from '@phosphor-icons/vue';
 
 const props = defineProps({
     project: Object,
@@ -23,7 +38,7 @@ const PHOTO_FORMATS = [
         rows: 2,
         label: 'Petit Paysage',
         shortLabel: 'P. Paysage',
-        icon: '🖼️',
+        icon: '3:2',
         desc: 'Ratio 3:2 — Quart de largeur (4 par rangée)',
     },
     {
@@ -32,7 +47,7 @@ const PHOTO_FORMATS = [
         rows: 4,
         label: 'Grand Paysage',
         shortLabel: 'G. Paysage',
-        icon: '🖼️',
+        icon: '3:2',
         desc: 'Ratio 3:2 — Moitié de largeur (2 par rangée)',
     },
     {
@@ -41,7 +56,7 @@ const PHOTO_FORMATS = [
         rows: 3,
         label: 'Petit Portrait',
         shortLabel: 'P. Portrait',
-        icon: '📱',
+        icon: '2:3',
         desc: 'Ratio 2:3 — Un sixième de largeur (6 par rangée)',
     },
     {
@@ -50,7 +65,7 @@ const PHOTO_FORMATS = [
         rows: 6,
         label: 'Grand Portrait',
         shortLabel: 'G. Portrait',
-        icon: '📱',
+        icon: '2:3',
         desc: 'Ratio 2:3 — Un tiers de largeur (3 par rangée)',
     },
 ];
@@ -68,26 +83,7 @@ const getCurrentFormatId = (photo) => {
     return c >= r ? 'landscape-sm' : 'portrait-sm';
 };
 
-const getItemGridStyle = (photo) => {
-    let c = photo.span_cols || 3;
-    let r = photo.span_rows || 2;
-    // Rétrocompatibilité
-    if (c === 12 && r === 8) { c = 6; r = 4; }
-    else if (c === 6 && r === 9) { c = 4; r = 6; }
-    else if (c === 2 && r === 1) { c = 6; r = 4; }
-    else if (c === 1 && r === 2) { c = 4; r = 6; }
-    else if (c === 1 && r === 1) { c = 3; r = 2; }
 
-    const style = {};
-    if (photo.col_start && photo.row_start) {
-        style.gridColumn = `${photo.col_start} / span ${c}`;
-        style.gridRow = `${photo.row_start} / span ${r}`;
-    } else {
-        style.gridColumn = `span ${c}`;
-        style.gridRow = `span ${r}`;
-    }
-    return style;
-};
 
 // Project meta form
 const form = useForm({
@@ -283,7 +279,14 @@ const executeDelete = () => {
     const photoId = confirmDeletion.value;
     router.delete(`/admin/projects/${props.project.id}/photos/${photoId}`, {
         preserveScroll: true,
-        onSuccess: () => { confirmDeletion.value = null; },
+        onSuccess: () => {
+            compositionRows.value.forEach(r => {
+                r.slots.forEach(s => {
+                    if (s.photo && s.photo.id === photoId) s.photo = null;
+                });
+            });
+            confirmDeletion.value = null;
+        },
     });
 };
 
@@ -353,96 +356,901 @@ const toggleHighlight = (photo) => {
     }, { preserveScroll: true });
 };
 
-// Drag & Drop interactif en direct (style Android widget réactif)
-const draggingIndex = ref(null);
-const dragOverIndex = ref(null);
-let originalPhotosState = null;
-let hasReordered = false;
+// --- Architecture Lignes Harmoniques & Slots (Emplacements) ---
+const compositionRows = ref([]);
+const showAddRowModal = ref(false);
+const addRowTargetIndex = ref(null);
 
-const onDragStart = (e, index) => {
-    draggingIndex.value = index;
-    dragOverIndex.value = index;
-    hasReordered = false;
-    originalPhotosState = JSON.parse(JSON.stringify(props.project.photos));
+// Drag & drop state
+const draggedItem = ref(null); // { photo, fromSlot, fromRowIndex, fromDock }
+const dragOverSlot = ref(null);
+const draggingRowIndex = ref(null);
+const dragOverRowIndex = ref(null);
+
+const getFormatLabel = (cols, rows) => {
+    if (cols === 6 && rows === 4) return 'Grand Paysage';
+    if (cols === 3 && rows === 2) return 'Petit Paysage';
+    if (cols === 4 && rows === 6) return 'Grand Portrait';
+    if (cols === 2 && rows === 3) return 'Petit Portrait';
+    return `${cols}×${rows}`;
+};
+
+// Bac de photos non placées (en attente)
+const unplacedPhotos = computed(() => {
+    const placedIds = new Set();
+    compositionRows.value.forEach(row => {
+        row.slots.forEach(slot => {
+            if (slot.photo) placedIds.add(slot.photo.id);
+        });
+    });
+    return props.project.photos.filter(p => !placedIds.has(p.id));
+});
+
+// Catalogue des 10 archétypes géométriques purs
+const HARMONY_TEMPLATES = [
+    {
+        id: 'quatuor-landscapes',
+        title: '4 Petits Paysages',
+        photosCount: 4,
+        totalRows: 2,
+        slots: [
+            { col_start: 1, row_start: 1, span_cols: 3, span_rows: 2, label: 'Petit Paysage' },
+            { col_start: 4, row_start: 1, span_cols: 3, span_rows: 2, label: 'Petit Paysage' },
+            { col_start: 7, row_start: 1, span_cols: 3, span_rows: 2, label: 'Petit Paysage' },
+            { col_start: 10, row_start: 1, span_cols: 3, span_rows: 2, label: 'Petit Paysage' },
+        ]
+    },
+    {
+        id: 'sextuor-portraits',
+        title: '6 Petits Portraits',
+        photosCount: 6,
+        totalRows: 3,
+        slots: [
+            { col_start: 1, row_start: 1, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 3, row_start: 1, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 5, row_start: 1, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 7, row_start: 1, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 9, row_start: 1, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 11, row_start: 1, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+        ]
+    },
+    {
+        id: 'duo-landscapes',
+        title: '2 Grands Paysages',
+        photosCount: 2,
+        totalRows: 4,
+        slots: [
+            { col_start: 1, row_start: 1, span_cols: 6, span_rows: 4, label: 'Grand Paysage' },
+            { col_start: 7, row_start: 1, span_cols: 6, span_rows: 4, label: 'Grand Paysage' },
+        ]
+    },
+    {
+        id: 'trio-portraits',
+        title: '3 Grands Portraits',
+        photosCount: 3,
+        totalRows: 6,
+        slots: [
+            { col_start: 1, row_start: 1, span_cols: 4, span_rows: 6, label: 'Grand Portrait' },
+            { col_start: 5, row_start: 1, span_cols: 4, span_rows: 6, label: 'Grand Portrait' },
+            { col_start: 9, row_start: 1, span_cols: 4, span_rows: 6, label: 'Grand Portrait' },
+        ]
+    },
+    {
+        id: 'one-lg-landscape-four-sm',
+        title: '1 Grand Paysage + 4 Petits Paysages',
+        photosCount: 5,
+        totalRows: 4,
+        slots: [
+            { col_start: 1, row_start: 1, span_cols: 6, span_rows: 4, label: 'Grand Paysage' },
+            { col_start: 7, row_start: 1, span_cols: 3, span_rows: 2, label: 'Petit Paysage' },
+            { col_start: 7, row_start: 3, span_cols: 3, span_rows: 2, label: 'Petit Paysage' },
+            { col_start: 10, row_start: 1, span_cols: 3, span_rows: 2, label: 'Petit Paysage' },
+            { col_start: 10, row_start: 3, span_cols: 3, span_rows: 2, label: 'Petit Paysage' },
+        ]
+    },
+    {
+        id: 'lg-landscape-lg-portrait-mix',
+        title: '1 G. Paysage + 1 G. Portrait + 2 P. Paysages + 2 P. Portraits',
+        photosCount: 6,
+        totalRows: 6,
+        slots: [
+            { col_start: 1, row_start: 1, span_cols: 4, span_rows: 6, label: 'Grand Portrait' },
+            { col_start: 5, row_start: 1, span_cols: 6, span_rows: 4, label: 'Grand Paysage' },
+            { col_start: 11, row_start: 1, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 11, row_start: 4, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 5, row_start: 5, span_cols: 3, span_rows: 2, label: 'Petit Paysage' },
+            { col_start: 8, row_start: 5, span_cols: 3, span_rows: 2, label: 'Petit Paysage' },
+        ]
+    },
+    {
+        id: 'four-sm-landscapes-six-sm-portraits',
+        title: '4 Petits Paysages + 6 Petits Portraits',
+        photosCount: 10,
+        totalRows: 5,
+        slots: [
+            { col_start: 1, row_start: 1, span_cols: 3, span_rows: 2, label: 'Petit Paysage' },
+            { col_start: 4, row_start: 1, span_cols: 3, span_rows: 2, label: 'Petit Paysage' },
+            { col_start: 7, row_start: 1, span_cols: 3, span_rows: 2, label: 'Petit Paysage' },
+            { col_start: 10, row_start: 1, span_cols: 3, span_rows: 2, label: 'Petit Paysage' },
+            { col_start: 1, row_start: 3, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 3, row_start: 3, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 5, row_start: 3, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 7, row_start: 3, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 9, row_start: 3, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 11, row_start: 3, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+        ]
+    },
+    {
+        id: 'two-lg-landscapes-two-sm-six-portraits',
+        title: '2 G. Paysages + 2 P. Paysages + 6 P. Portraits',
+        photosCount: 10,
+        totalRows: 8,
+        slots: [
+            { col_start: 1, row_start: 1, span_cols: 3, span_rows: 2, label: 'Petit Paysage' },
+            { col_start: 4, row_start: 1, span_cols: 3, span_rows: 2, label: 'Petit Paysage' },
+            { col_start: 7, row_start: 1, span_cols: 6, span_rows: 4, label: 'Grand Paysage' },
+            { col_start: 1, row_start: 3, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 3, row_start: 3, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 5, row_start: 3, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 7, row_start: 5, span_cols: 6, span_rows: 4, label: 'Grand Paysage' },
+            { col_start: 1, row_start: 6, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 3, row_start: 6, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 5, row_start: 6, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+        ]
+    },
+    {
+        id: 'two-lg-landscapes-two-sm-one-lg-port-two-sm',
+        title: '2 G. Paysages + 2 P. Paysages + 1 G. Portrait + 2 P. Portraits',
+        photosCount: 7,
+        totalRows: 8,
+        slots: [
+            { col_start: 1, row_start: 1, span_cols: 3, span_rows: 2, label: 'Petit Paysage' },
+            { col_start: 4, row_start: 1, span_cols: 3, span_rows: 2, label: 'Petit Paysage' },
+            { col_start: 7, row_start: 1, span_cols: 6, span_rows: 4, label: 'Grand Paysage' },
+            { col_start: 1, row_start: 3, span_cols: 4, span_rows: 6, label: 'Grand Portrait' },
+            { col_start: 5, row_start: 3, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 5, row_start: 6, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 7, row_start: 5, span_cols: 6, span_rows: 4, label: 'Grand Paysage' },
+        ]
+    },
+    {
+        id: 'one-lg-portrait-eight-sm',
+        title: '1 Grand Portrait + 8 Petits Portraits',
+        photosCount: 9,
+        totalRows: 6,
+        slots: [
+            { col_start: 1, row_start: 1, span_cols: 4, span_rows: 6, label: 'Grand Portrait' },
+            { col_start: 5, row_start: 1, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 7, row_start: 1, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 9, row_start: 1, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 11, row_start: 1, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 5, row_start: 4, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 7, row_start: 4, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 9, row_start: 4, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+            { col_start: 11, row_start: 4, span_cols: 2, span_rows: 3, label: 'Petit Portrait' },
+        ]
+    }
+];
+
+// Initialisation des lignes et slots à partir des photos existantes
+const initCompositionRows = () => {
+    const photos = props.project.photos || [];
+    if (photos.length === 0) {
+        compositionRows.value = [];
+        return;
+    }
+
+    const placed = photos.filter(p => p.col_start && p.row_start);
+    if (placed.length === 0) {
+        compositionRows.value = [];
+        return;
+    }
+
+    const sorted = [...placed].sort((a, b) => {
+        if (a.row_start !== b.row_start) return a.row_start - b.row_start;
+        return a.col_start - b.col_start;
+    });
+
+    const blocks = [];
+    let currentBlock = null;
+
+    sorted.forEach(photo => {
+        const rStart = photo.row_start;
+        const h = photo.span_rows || 2;
+        const rEnd = rStart + h - 1;
+
+        if (!currentBlock) {
+            currentBlock = {
+                id: `row-${Date.now()}-${rStart}`,
+                startRow: rStart,
+                endRow: rEnd,
+                photos: [photo]
+            };
+        } else {
+            if (rStart <= currentBlock.endRow) {
+                currentBlock.photos.push(photo);
+                if (rEnd > currentBlock.endRow) {
+                    currentBlock.endRow = rEnd;
+                }
+            } else {
+                blocks.push(currentBlock);
+                currentBlock = {
+                    id: `row-${Date.now()}-${rStart}`,
+                    startRow: rStart,
+                    endRow: rEnd,
+                    photos: [photo]
+                };
+            }
+        }
+    });
+    if (currentBlock) blocks.push(currentBlock);
+
+    compositionRows.value = blocks.map((block, bIdx) => {
+        const minR = block.startRow;
+        const totalRows = Math.max(2, block.endRow - block.startRow + 1);
+
+        const slots = block.photos.map(p => ({
+            id: `slot-${bIdx}-${p.id}`,
+            col_start: p.col_start,
+            row_start: p.row_start - minR + 1,
+            span_cols: p.span_cols || 3,
+            span_rows: p.span_rows || 2,
+            label: getFormatLabel(p.span_cols || 3, p.span_rows || 2),
+            photo: p
+        }));
+
+        // Détection des trous dans cette ligne pour les proposer comme slots vides
+        const gridOccupied = {};
+        slots.forEach(s => {
+            for (let r = s.row_start; r < s.row_start + s.span_rows; r++) {
+                for (let c = s.col_start; c < s.col_start + s.span_cols; c++) {
+                    gridOccupied[`${r},${c}`] = true;
+                }
+            }
+        });
+
+        let gapCount = 1;
+        for (let r = 1; r <= totalRows; r++) {
+            for (let c = 1; c <= 12; c++) {
+                if (!gridOccupied[`${r},${c}`]) {
+                    let w = 0;
+                    while (c + w <= 12 && !gridOccupied[`${r},${c + w}`]) {
+                        w++;
+                    }
+                    let h = 1;
+                    let canExpand = true;
+                    while (canExpand && (r + h <= totalRows)) {
+                        for (let tc = c; tc < c + w; tc++) {
+                            if (gridOccupied[`${r + h},${tc}`]) {
+                                canExpand = false;
+                                break;
+                            }
+                        }
+                        if (canExpand) h++;
+                    }
+                    for (let mr = r; mr < r + h; mr++) {
+                        for (let mc = c; mc < c + w; mc++) {
+                            gridOccupied[`${mr},${mc}`] = true;
+                        }
+                    }
+
+                    let lbl = 'Petit Paysage';
+                    if (w === 6 && h === 4) lbl = 'Grand Paysage';
+                    else if (w === 4 && h === 6) lbl = 'Grand Portrait';
+                    else if (w === 2 && h === 3) lbl = 'Petit Portrait';
+
+                    slots.push({
+                        id: `slot-empty-${bIdx}-${gapCount++}`,
+                        col_start: c,
+                        row_start: r,
+                        span_cols: w,
+                        span_rows: h,
+                        label: lbl,
+                        photo: null
+                    });
+                }
+            }
+        }
+
+        slots.sort((a, b) => {
+            if (a.row_start !== b.row_start) return a.row_start - b.row_start;
+            return a.col_start - b.col_start;
+        });
+
+        return {
+            id: block.id,
+            totalRows: totalRows,
+            slots: slots
+        };
+    });
+};
+
+const getSlotGridStyle = (slot) => {
+    return {
+        gridColumn: `${slot.col_start} / span ${slot.span_cols}`,
+        gridRow: `${slot.row_start} / span ${slot.span_rows}`,
+    };
+};
+
+// Ouvrir la modale spacieuse d'ajout de ligne
+const openAddRowModal = (targetIndex = null) => {
+    addRowTargetIndex.value = targetIndex;
+    showAddRowModal.value = true;
+};
+
+// Insérer une nouvelle ligne harmonique VIDE avec ses slots prévus
+const applyHarmonyTemplate = (template, insertIndex = null) => {
+    const newRow = {
+        id: 'row-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+        totalRows: template.totalRows,
+        slots: template.slots.map((s, idx) => ({
+            id: `slot-${Date.now()}-${idx}`,
+            col_start: s.col_start,
+            row_start: s.row_start,
+            span_cols: s.span_cols,
+            span_rows: s.span_rows,
+            label: s.label || getFormatLabel(s.span_cols, s.span_rows),
+            photo: null, // TOUJOURS VIDE PAR DÉFAUT !
+        }))
+    };
+
+    if (insertIndex !== null && insertIndex !== undefined && insertIndex >= 0 && insertIndex <= compositionRows.value.length) {
+        compositionRows.value.splice(insertIndex, 0, newRow);
+    } else {
+        compositionRows.value.push(newRow);
+    }
+
+    showAddRowModal.value = false;
+    syncAllPositionsAndSave();
+};
+
+// Drag & drop des photos
+const onPhotoDragStart = (e, slot, rIdx) => {
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', index);
+    draggedItem.value = {
+        photo: slot.photo,
+        fromSlot: slot,
+        fromRowIndex: rIdx,
+        fromDock: false,
+    };
+    e.dataTransfer.setData('text/plain', slot.photo.id);
 };
 
-// Réordonnancement en direct dès qu'on survole une photo (déplacement dynamique des éléments)
-const onDragEnterItem = (e, targetIndex) => {
-    e.preventDefault();
-    if (draggingIndex.value === null || draggingIndex.value === targetIndex) return;
-
-    // Déplacement dynamique immédiat dans la liste
-    const photos = [...props.project.photos];
-    const [moved] = photos.splice(draggingIndex.value, 1);
-    photos.splice(targetIndex, 0, moved);
-
-    // Recalculer les positions 2D instantanément
-    computeGridPositions(photos);
-    photos.forEach((p, idx) => p.display_order = idx);
-
-    props.project.photos.splice(0, props.project.photos.length, ...photos);
-    draggingIndex.value = targetIndex;
-    dragOverIndex.value = targetIndex;
-    hasReordered = true;
+const onDockPhotoDragStart = (e, photo) => {
+    e.dataTransfer.effectAllowed = 'move';
+    draggedItem.value = {
+        photo: photo,
+        fromSlot: null,
+        fromRowIndex: null,
+        fromDock: true,
+    };
+    e.dataTransfer.setData('text/plain', photo.id);
 };
 
-const onDragOver = (e, index) => {
+const onSlotDragEnter = (e, slot) => {
+    dragOverSlot.value = slot;
+};
+
+const onSlotDragOver = (e, slot) => {
     e.preventDefault();
+    dragOverSlot.value = slot;
     e.dataTransfer.dropEffect = 'move';
 };
 
-const onDragEnd = () => {
-    if (hasReordered) {
-        saveOrderToServer();
+const onDropOnSlot = (e, targetSlot, targetRowIndex) => {
+    e.preventDefault();
+    if (!draggedItem.value || !draggedItem.value.photo) {
+        onPhotoDragEnd();
+        return;
     }
-    draggingIndex.value = null;
-    dragOverIndex.value = null;
-    originalPhotosState = null;
-    hasReordered = false;
+
+    const draggedPhoto = draggedItem.value.photo;
+    const fromSlot = draggedItem.value.fromSlot;
+
+    if (fromSlot && fromSlot.id === targetSlot.id) {
+        onPhotoDragEnd();
+        return;
+    }
+
+    if (!targetSlot.photo) {
+        // Slot cible est VIDE
+        if (fromSlot) {
+            fromSlot.photo = null;
+        }
+        targetSlot.photo = draggedPhoto;
+        draggedPhoto.span_cols = targetSlot.span_cols;
+        draggedPhoto.span_rows = targetSlot.span_rows;
+    } else {
+        // Slot cible est OCCUPÉ
+        const targetPhoto = targetSlot.photo;
+        if (fromSlot) {
+            // SWAP
+            targetSlot.photo = draggedPhoto;
+            draggedPhoto.span_cols = targetSlot.span_cols;
+            draggedPhoto.span_rows = targetSlot.span_rows;
+
+            fromSlot.photo = targetPhoto;
+            targetPhoto.span_cols = fromSlot.span_cols;
+            targetPhoto.span_rows = fromSlot.span_rows;
+        } else {
+            // Vient du dock : remplace la photo du slot, l'ancienne retourne au dock
+            targetPhoto.col_start = null;
+            targetPhoto.row_start = null;
+            targetSlot.photo = draggedPhoto;
+            draggedPhoto.span_cols = targetSlot.span_cols;
+            draggedPhoto.span_rows = targetSlot.span_rows;
+        }
+    }
+
+    syncAllPositionsAndSave();
+    onPhotoDragEnd();
 };
 
-// Algorithme de calcul du positionnement 2D (simule le quadrillage 12 cols sans collisions)
-const computeGridPositions = (photosList) => {
-    const gridOccupied = {}; // key: "r,c" => true
-    const isSlotAvailable = (row, col, w, h) => {
-        if (col + w - 1 > 12) return false;
-        for (let r = row; r < row + h; r++) {
-            for (let c = col; c < col + w; c++) {
-                if (gridOccupied[`${r},${c}`]) return false;
-            }
-        }
-        return true;
-    };
+const onRowDropPhoto = (e, targetRowIndex) => {
+    e.preventDefault();
+    if (!draggedItem.value || !draggedItem.value.photo) return;
+    const targetRow = compositionRows.value[targetRowIndex];
+    if (!targetRow) return;
 
-    const occupySlot = (row, col, w, h) => {
-        for (let r = row; r < row + h; r++) {
-            for (let c = col; c < col + w; c++) {
-                gridOccupied[`${r},${c}`] = true;
-            }
-        }
-    };
+    const emptySlot = targetRow.slots.find(s => !s.photo);
+    if (emptySlot) {
+        onDropOnSlot(e, emptySlot, targetRowIndex);
+    } else if (targetRow.slots.length > 0) {
+        onDropOnSlot(e, targetRow.slots[0], targetRowIndex);
+    }
+};
 
-    photosList.forEach(photo => {
-        const w = photo.span_cols || 3;
-        const h = photo.span_rows || 2;
-        let placed = false;
-        let r = 1;
+const detachPhotoFromSlot = (slot, rIdx) => {
+    if (!slot.photo) return;
+    slot.photo.col_start = null;
+    slot.photo.row_start = null;
+    slot.photo = null;
+    syncAllPositionsAndSave();
+};
 
-        while (!placed && r < 500) {
-            for (let c = 1; c <= 12 - w + 1; c++) {
-                if (isSlotAvailable(r, c, w, h)) {
-                    photo.col_start = c;
-                    photo.row_start = r;
-                    occupySlot(r, c, w, h);
-                    placed = true;
-                    break;
-                }
+const onDropOnDock = (e) => {
+    e.preventDefault();
+    if (!draggedItem.value || !draggedItem.value.photo) return;
+    if (draggedItem.value.fromSlot) {
+        detachPhotoFromSlot(draggedItem.value.fromSlot, draggedItem.value.fromRowIndex);
+    }
+    onPhotoDragEnd();
+};
+
+const onPhotoDragEnd = () => {
+    draggedItem.value = null;
+    dragOverSlot.value = null;
+};
+
+// Remplissage automatique des slots vides avec les photos en attente
+const autoFillEmptySlots = () => {
+    const available = [...unplacedPhotos.value];
+    if (available.length === 0) return;
+
+    compositionRows.value.forEach(row => {
+        row.slots.forEach(slot => {
+            if (!slot.photo && available.length > 0) {
+                const isLandscapeSlot = slot.span_cols >= slot.span_rows;
+                const matchIdx = available.findIndex(p => {
+                    const isLand = (p.span_cols || 3) >= (p.span_rows || 2);
+                    return isLandscapeSlot === isLand;
+                });
+                const chosen = matchIdx !== -1 ? available.splice(matchIdx, 1)[0] : available.shift();
+                slot.photo = chosen;
+                chosen.span_cols = slot.span_cols;
+                chosen.span_rows = slot.span_rows;
             }
-            if (!placed) r++;
+        });
+    });
+
+    syncAllPositionsAndSave();
+};
+
+// Inversion (effet miroir gauche/droite) d'une ligne
+const invertRowBlock = (row) => {
+    if (!row || !row.slots) return;
+    row.slots.forEach(slot => {
+        const w = slot.span_cols || 3;
+        const oldCol = slot.col_start || 1;
+        slot.col_start = Math.max(1, Math.min(12 - w + 1, 13 - (oldCol + w - 1)));
+    });
+    row.slots.sort((a, b) => {
+        if (a.row_start !== b.row_start) return a.row_start - b.row_start;
+        return a.col_start - b.col_start;
+    });
+    syncAllPositionsAndSave();
+};
+
+// Déplacement de ligne entière vers le haut / bas
+const moveRowBlockUp = (rIdx) => {
+    if (rIdx <= 0) return;
+    const row = compositionRows.value.splice(rIdx, 1)[0];
+    compositionRows.value.splice(rIdx - 1, 0, row);
+    syncAllPositionsAndSave();
+};
+
+const moveRowBlockDown = (rIdx) => {
+    if (rIdx >= compositionRows.value.length - 1) return;
+    const row = compositionRows.value.splice(rIdx, 1)[0];
+    compositionRows.value.splice(rIdx + 1, 0, row);
+    syncAllPositionsAndSave();
+};
+
+// Suppression d'une ligne harmonique
+const removeHarmonicRow = (rIdx) => {
+    const row = compositionRows.value[rIdx];
+    if (!row) return;
+    row.slots.forEach(slot => {
+        if (slot.photo) {
+            slot.photo.col_start = null;
+            slot.photo.row_start = null;
         }
     });
+    compositionRows.value.splice(rIdx, 1);
+    syncAllPositionsAndSave();
+};
+
+// Drag & drop de lignes entières
+const onRowDragStart = (e, index) => {
+    draggingRowIndex.value = index;
+    dragOverRowIndex.value = index;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', `row-${index}`);
+};
+
+const onRowDragOver = (e, index) => {
+    e.preventDefault();
+    dragOverRowIndex.value = index;
+    e.dataTransfer.dropEffect = 'move';
+};
+
+const onRowDrop = (e, targetIndex) => {
+    e.preventDefault();
+    if (draggingRowIndex.value === null || draggingRowIndex.value === targetIndex) {
+        draggingRowIndex.value = null;
+        dragOverRowIndex.value = null;
+        return;
+    }
+    const row = compositionRows.value.splice(draggingRowIndex.value, 1)[0];
+    compositionRows.value.splice(targetIndex, 0, row);
+    draggingRowIndex.value = null;
+    dragOverRowIndex.value = null;
+    syncAllPositionsAndSave();
+};
+
+// --- DÉPLACEMENT DE SLOTS (GAUCHE / DROITE / HAUT / BAS) & DIVISION / FUSION ---
+
+// Vérifie si la boîte rectangulaire [c1..c2] x [r1..r2] est fermée (aucun slot ne déborde et aire pleine)
+const isBoxClosed = (slots, c1, c2, r1, r2) => {
+    if (c1 > c2 || r1 > r2) return false;
+    let area = 0;
+    for (const s of slots) {
+        const sc1 = s.col_start;
+        const sc2 = s.col_start + s.span_cols - 1;
+        const sr1 = s.row_start;
+        const sr2 = s.row_start + s.span_rows - 1;
+        const overlapsC = !(sc2 < c1 || sc1 > c2);
+        const overlapsR = !(sr2 < r1 || sr1 > r2);
+        if (overlapsC && overlapsR) {
+            if (sc1 < c1 || sc2 > c2 || sr1 < r1 || sr2 > r2) {
+                return false;
+            }
+            area += s.span_cols * s.span_rows;
+        }
+    }
+    return area === (c2 - c1 + 1) * (r2 - r1 + 1);
+};
+
+const getSlotsInBox = (slots, c1, c2, r1, r2) => {
+    return slots.filter(s =>
+        s.col_start >= c1 && (s.col_start + s.span_cols - 1) <= c2 &&
+        s.row_start >= r1 && (s.row_start + s.span_rows - 1) <= r2
+    );
+};
+
+// Évite les échanges visuellement identiques quand tous les slots sont vides (ex: échanger 2 slots vides 3x2)
+const isSwapNoOp = (slotsB, slotsBPrime, dcB, drB, dcBPrime, drBPrime) => {
+    const anyPhoto = slotsB.some(s => !!s.photo) || slotsBPrime.some(s => !!s.photo);
+    if (anyPhoto) return false;
+    const beforeSet = new Set([
+        ...slotsB.map(s => `${s.col_start},${s.row_start},${s.span_cols},${s.span_rows}`),
+        ...slotsBPrime.map(s => `${s.col_start},${s.row_start},${s.span_cols},${s.span_rows}`),
+    ]);
+    const afterSet = new Set([
+        ...slotsB.map(s => `${s.col_start + dcB},${s.row_start + drB},${s.span_cols},${s.span_rows}`),
+        ...slotsBPrime.map(s => `${s.col_start + dcBPrime},${s.row_start + drBPrime},${s.span_cols},${s.span_rows}`),
+    ]);
+    if (beforeSet.size !== afterSet.size) return false;
+    for (const k of beforeSet) {
+        if (!afterSet.has(k)) return false;
+    }
+    return true;
+};
+
+// Cherche le déplacement local optimal d'un slot (ou de son sous-bloc harmonique) dans une direction
+const findSlotMove = (row, slot, dir) => {
+    if (!row || !Array.isArray(row.slots) || !slot) return null;
+    const slots = row.slots;
+    const H = row.totalRows || Math.max(...slots.map(s => s.row_start + s.span_rows - 1), 2);
+    const sc1 = slot.col_start;
+    const sc2 = slot.col_start + slot.span_cols - 1;
+    const sr1 = slot.row_start;
+    const sr2 = slot.row_start + slot.span_rows - 1;
+
+    const candidates = [];
+
+    if (dir === 'left' || dir === 'right') {
+        for (let r1 = 1; r1 <= sr1; r1++) {
+            for (let r2 = sr2; r2 <= H; r2++) {
+                for (let c1 = 1; c1 <= sc1; c1++) {
+                    for (let c2 = sc2; c2 <= 12; c2++) {
+                        if (!isBoxClosed(slots, c1, c2, r1, r2)) continue;
+                        const slotsB = getSlotsInBox(slots, c1, c2, r1, r2);
+                        const wB = c2 - c1 + 1;
+                        const hSpan = r2 - r1 + 1;
+
+                        if (dir === 'left' && c1 > 1) {
+                            for (let c0 = c1 - 1; c0 >= 1; c0--) {
+                                if (isBoxClosed(slots, c0, c1 - 1, r1, r2)) {
+                                    const slotsBPrime = getSlotsInBox(slots, c0, c1 - 1, r1, r2);
+                                    const wBPrime = c1 - c0;
+                                    if (!isSwapNoOp(slotsB, slotsBPrime, -wBPrime, 0, wB, 0)) {
+                                        candidates.push({
+                                            slotsB, slotsBPrime,
+                                            dcB: -wBPrime, drB: 0,
+                                            dcBPrime: wB, drBPrime: 0,
+                                            score: hSpan * 1000 + wB * 50 + wBPrime
+                                        });
+                                    }
+                                    break;
+                                }
+                            }
+                        } else if (dir === 'right' && c2 < 12) {
+                            for (let c3 = c2 + 1; c3 <= 12; c3++) {
+                                if (isBoxClosed(slots, c2 + 1, c3, r1, r2)) {
+                                    const slotsBPrime = getSlotsInBox(slots, c2 + 1, c3, r1, r2);
+                                    const wBPrime = c3 - c2;
+                                    if (!isSwapNoOp(slotsB, slotsBPrime, wBPrime, 0, -wB, 0)) {
+                                        candidates.push({
+                                            slotsB, slotsBPrime,
+                                            dcB: wBPrime, drB: 0,
+                                            dcBPrime: -wB, drBPrime: 0,
+                                            score: hSpan * 1000 + wB * 50 + wBPrime
+                                        });
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } else if (dir === 'up' || dir === 'down') {
+        for (let c1 = 1; c1 <= sc1; c1++) {
+            for (let c2 = sc2; c2 <= 12; c2++) {
+                for (let r1 = 1; r1 <= sr1; r1++) {
+                    for (let r2 = sr2; r2 <= H; r2++) {
+                        if (!isBoxClosed(slots, c1, c2, r1, r2)) continue;
+                        const slotsB = getSlotsInBox(slots, c1, c2, r1, r2);
+                        const hB = r2 - r1 + 1;
+                        const wSpan = c2 - c1 + 1;
+
+                        if (dir === 'up' && r1 > 1) {
+                            for (let r0 = r1 - 1; r0 >= 1; r0--) {
+                                if (isBoxClosed(slots, c1, c2, r0, r1 - 1)) {
+                                    const slotsBPrime = getSlotsInBox(slots, c1, c2, r0, r1 - 1);
+                                    const hBPrime = r1 - r0;
+                                    if (!isSwapNoOp(slotsB, slotsBPrime, 0, -hBPrime, 0, hB)) {
+                                        candidates.push({
+                                            slotsB, slotsBPrime,
+                                            dcB: 0, drB: -hBPrime,
+                                            dcBPrime: 0, drBPrime: hB,
+                                            score: wSpan * 1000 + hB * 50 + hBPrime
+                                        });
+                                    }
+                                    break;
+                                }
+                            }
+                        } else if (dir === 'down' && r2 < H) {
+                            for (let r3 = r2 + 1; r3 <= H; r3++) {
+                                if (isBoxClosed(slots, c1, c2, r2 + 1, r3)) {
+                                    const slotsBPrime = getSlotsInBox(slots, c1, c2, r2 + 1, r3);
+                                    const hBPrime = r3 - r2;
+                                    if (!isSwapNoOp(slotsB, slotsBPrime, 0, hBPrime, 0, -hB)) {
+                                        candidates.push({
+                                            slotsB, slotsBPrime,
+                                            dcB: 0, drB: hBPrime,
+                                            dcBPrime: 0, drBPrime: -hB,
+                                            score: wSpan * 1000 + hB * 50 + hBPrime
+                                        });
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (candidates.length === 0) return null;
+    candidates.sort((a, b) => a.score - b.score);
+    return candidates[0];
+};
+
+const moveSlotInRow = (row, slot, dir) => {
+    const move = findSlotMove(row, slot, dir);
+    if (!move) return;
+    move.slotsB.forEach(s => {
+        s.col_start += move.dcB;
+        s.row_start += move.drB;
+    });
+    move.slotsBPrime.forEach(s => {
+        s.col_start += move.dcBPrime;
+        s.row_start += move.drBPrime;
+    });
+    row.slots.sort((a, b) => (a.row_start - b.row_start) || (a.col_start - b.col_start));
+    syncAllPositionsAndSave();
+};
+
+// Division d'un Grand format (6x4 ou 4x6) en 4 Petits formats (3x2 ou 2x3)
+const canSubdivideSlot = (slot) => {
+    if (!slot) return false;
+    return (slot.span_cols === 6 && slot.span_rows === 4) || (slot.span_cols === 4 && slot.span_rows === 6);
+};
+
+const subdivideSlot = (row, slot) => {
+    if (!row || !Array.isArray(row.slots) || !canSubdivideSlot(slot)) return;
+    const isLandscape = slot.span_cols === 6 && slot.span_rows === 4;
+    const subW = isLandscape ? 3 : 2;
+    const subH = isLandscape ? 2 : 3;
+    const subLabel = isLandscape ? 'Petit Paysage' : 'Petit Portrait';
+    const c = slot.col_start;
+    const r = slot.row_start;
+    const existingPhoto = slot.photo || null;
+
+    if (existingPhoto) {
+        existingPhoto.span_cols = subW;
+        existingPhoto.span_rows = subH;
+    }
+
+    const idx = row.slots.findIndex(s => s.id === slot.id);
+    if (idx === -1) return;
+
+    const baseId = `slot-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const newSlots = [
+        { id: `${baseId}-0`, col_start: c,        row_start: r,        span_cols: subW, span_rows: subH, label: subLabel, photo: existingPhoto },
+        { id: `${baseId}-1`, col_start: c + subW, row_start: r,        span_cols: subW, span_rows: subH, label: subLabel, photo: null },
+        { id: `${baseId}-2`, col_start: c,        row_start: r + subH, span_cols: subW, span_rows: subH, label: subLabel, photo: null },
+        { id: `${baseId}-3`, col_start: c + subW, row_start: r + subH, span_cols: subW, span_rows: subH, label: subLabel, photo: null },
+    ];
+
+    row.slots.splice(idx, 1, ...newSlots);
+    row.slots.sort((a, b) => (a.row_start - b.row_start) || (a.col_start - b.col_start));
+    syncAllPositionsAndSave();
+};
+
+// Fusion de 4 Petits formats (2x2 de 3x2 ou 2x3) en 1 Grand format (6x4 ou 4x6)
+const findMergeGroup = (row, slot) => {
+    if (!row || !Array.isArray(row.slots) || !slot) return null;
+    const isSmallLandscape = slot.span_cols === 3 && slot.span_rows === 2;
+    const isSmallPortrait = slot.span_cols === 2 && slot.span_rows === 3;
+    if (!isSmallLandscape && !isSmallPortrait) return null;
+
+    const subW = slot.span_cols;
+    const subH = slot.span_rows;
+    const bigW = subW * 2;
+    const bigH = subH * 2;
+    const bigLabel = isSmallLandscape ? 'Grand Paysage' : 'Grand Portrait';
+
+    const possibleAnchors = [
+        [slot.col_start - subW, slot.row_start - subH],
+        [slot.col_start,        slot.row_start - subH],
+        [slot.col_start - subW, slot.row_start],
+        [slot.col_start,        slot.row_start],
+    ];
+
+    possibleAnchors.sort((a, b) => {
+        const aAligned = ((a[0] - 1) % bigW === 0 ? 0 : 1) + ((a[1] - 1) % bigH === 0 ? 0 : 1);
+        const bAligned = ((b[0] - 1) % bigW === 0 ? 0 : 1) + ((b[1] - 1) % bigH === 0 ? 0 : 1);
+        return aAligned - bAligned;
+    });
+
+    for (const [ac, ar] of possibleAnchors) {
+        if (ac < 1 || ar < 1 || ac + bigW - 1 > 12) continue;
+        const s00 = row.slots.find(s => s.col_start === ac && s.row_start === ar && s.span_cols === subW && s.span_rows === subH);
+        const s10 = row.slots.find(s => s.col_start === ac + subW && s.row_start === ar && s.span_cols === subW && s.span_rows === subH);
+        const s01 = row.slots.find(s => s.col_start === ac && s.row_start === ar + subH && s.span_cols === subW && s.span_rows === subH);
+        const s11 = row.slots.find(s => s.col_start === ac + subW && s.row_start === ar + subH && s.span_cols === subW && s.span_rows === subH);
+        if (s00 && s10 && s01 && s11) {
+            return {
+                anchorC: ac,
+                anchorR: ar,
+                bigW,
+                bigH,
+                bigLabel,
+                group: [s00, s10, s01, s11],
+            };
+        }
+    }
+    return null;
+};
+
+const mergeSlots = (row, slot) => {
+    const mergeInfo = findMergeGroup(row, slot);
+    if (!mergeInfo) return;
+
+    const { anchorC, anchorR, bigW, bigH, bigLabel, group } = mergeInfo;
+    const photosInGroup = group.map(s => s.photo).filter(Boolean);
+    const keptPhoto = photosInGroup[0] || null;
+
+    // Remettre les éventuelles photos supplémentaires en attente dans le dock
+    for (let i = 1; i < photosInGroup.length; i++) {
+        photosInGroup[i].col_start = null;
+        photosInGroup[i].row_start = null;
+    }
+
+    if (keptPhoto) {
+        keptPhoto.span_cols = bigW;
+        keptPhoto.span_rows = bigH;
+    }
+
+    const groupIds = new Set(group.map(s => s.id));
+    row.slots = row.slots.filter(s => !groupIds.has(s.id));
+    row.slots.push({
+        id: `slot-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        col_start: anchorC,
+        row_start: anchorR,
+        span_cols: bigW,
+        span_rows: bigH,
+        label: bigLabel,
+        photo: keptPhoto,
+    });
+    row.slots.sort((a, b) => (a.row_start - b.row_start) || (a.col_start - b.col_start));
+    syncAllPositionsAndSave();
+};
+
+
+// Calcul et sauvegarde de toutes les positions globales 2D
+const syncAllPositionsAndSave = () => {
+    let currentRowStart = 1;
+    const finalPhotos = [];
+    const placedPhotoIds = new Set();
+
+    compositionRows.value.forEach(row => {
+        let maxRowInBlock = 0;
+        row.slots.forEach(slot => {
+            const endR = slot.row_start + slot.span_rows - 1;
+            if (endR > maxRowInBlock) maxRowInBlock = endR;
+
+            if (slot.photo) {
+                slot.photo.col_start = slot.col_start;
+                slot.photo.row_start = currentRowStart + slot.row_start - 1;
+                slot.photo.span_cols = slot.span_cols;
+                slot.photo.span_rows = slot.span_rows;
+                finalPhotos.push(slot.photo);
+                placedPhotoIds.add(slot.photo.id);
+            }
+        });
+        const blockHeight = row.totalRows || maxRowInBlock || 2;
+        currentRowStart += blockHeight;
+    });
+
+    // Photos non placées
+    props.project.photos.forEach(p => {
+        if (!placedPhotoIds.has(p.id)) {
+            p.col_start = null;
+            p.row_start = null;
+            finalPhotos.push(p);
+        }
+    });
+
+    finalPhotos.forEach((p, idx) => p.display_order = idx);
+    props.project.photos.splice(0, props.project.photos.length, ...finalPhotos);
+
+    saveOrderToServer();
 };
 
 const saveOrderToServer = () => {
@@ -451,6 +1259,8 @@ const saveOrderToServer = () => {
         display_order: i,
         col_start: p.col_start,
         row_start: p.row_start,
+        span_cols: p.span_cols,
+        span_rows: p.span_rows,
     }));
 
     router.post(`/admin/projects/${props.project.id}/photos/reorder`, { order }, {
@@ -461,10 +1271,7 @@ const saveOrderToServer = () => {
     });
 };
 
-const onDrop = (e, targetIndex) => {
-    e.preventDefault();
-    onDragEnd();
-};
+
 
 // --- Sélection & Actions groupées ---
 const selectedPhotoIds = ref([]);
@@ -560,12 +1367,18 @@ const applyBulkInstagramTag = () => {
 
 const executeBulkDelete = () => {
     if (selectedPhotoIds.value.length === 0) return;
+    const deletedSet = new Set(selectedPhotoIds.value);
 
     router.post(`/admin/projects/${props.project.id}/photos/bulk-destroy`, {
         ids: selectedPhotoIds.value,
     }, {
         preserveScroll: true,
         onSuccess: () => {
+            compositionRows.value.forEach(r => {
+                r.slots.forEach(s => {
+                    if (s.photo && deletedSet.has(s.photo.id)) s.photo = null;
+                });
+            });
             selectedPhotoIds.value = [];
             confirmBulkDelete.value = false;
         }
@@ -588,12 +1401,19 @@ const updateAdminGridUnit = () => {
 };
 
 onMounted(() => {
+    initCompositionRows();
     updateAdminGridUnit();
     if (window.ResizeObserver && adminGridRef.value) {
         resizeObserver = new ResizeObserver(() => updateAdminGridUnit());
         resizeObserver.observe(adminGridRef.value);
     }
 });
+
+watch(() => props.project.photos, (newPhotos) => {
+    if (compositionRows.value.length === 0 && newPhotos && newPhotos.length > 0) {
+        initCompositionRows();
+    }
+}, { deep: true });
 
 onUnmounted(() => {
     if (resizeObserver) resizeObserver.disconnect();
@@ -613,10 +1433,14 @@ onUnmounted(() => {
                     </span>
                 </div>
                 <div style="display: flex; gap: var(--space-sm);">
-                    <a :href="`/projets/${project.slug}`" target="_blank" class="btn btn-secondary btn-sm">
-                        👁️ Voir sur le site
+                    <a :href="`/projets/${project.slug}`" target="_blank" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
+                        <PhEye :size="15" weight="bold" />
+                        <span>Voir sur le site</span>
                     </a>
-                    <Link href="/admin/projects" class="btn btn-ghost btn-sm">← Projets</Link>
+                    <Link href="/admin/projects" class="btn btn-ghost btn-sm" style="display: inline-flex; align-items: center; gap: 4px;">
+                        <PhArrowLeft :size="14" weight="bold" />
+                        <span>Projets</span>
+                    </Link>
                 </div>
             </div>
         </template>
@@ -735,8 +1559,9 @@ onUnmounted(() => {
                                 </div>
 
                                 <div class="upload-progress-footer">
-                                    <span>
-                                        📸 <strong>{{ uploadProgress.uploadedCount }}</strong> / {{ uploadProgress.totalCount }} photos
+                                    <span style="display: inline-flex; align-items: center; gap: 6px;">
+                                        <PhCamera :size="15" weight="duotone" />
+                                        <span><strong>{{ uploadProgress.uploadedCount }}</strong> / {{ uploadProgress.totalCount }} photos</span>
                                     </span>
                                     <span v-if="uploadProgress.totalBatches > 1" class="batch-badge">
                                         Lot {{ uploadProgress.currentBatch }} / {{ uploadProgress.totalBatches }}
@@ -747,7 +1572,9 @@ onUnmounted(() => {
 
                             <!-- Idle state -->
                             <div v-else>
-                                <div style="font-size: 2rem; margin-bottom: var(--space-sm);">📷</div>
+                                <div style="display: flex; justify-content: center; margin-bottom: var(--space-sm);">
+                                    <PhUploadSimple :size="36" weight="duotone" style="color: var(--primary-light);" />
+                                </div>
                                 <div style="color: var(--text-secondary); font-weight: 500;">
                                     {{ isDragOver ? 'Relâchez pour uploader !' : 'Cliquez ou glissez vos photos ici' }}
                                 </div>
@@ -780,26 +1607,6 @@ onUnmounted(() => {
                                     {{ selectedPhotoIds.length }} sélectionnée{{ selectedPhotoIds.length > 1 ? 's' : '' }}
                                 </span>
                             </div>
-                        </div>
-
-                        <!-- Mode toggle -->
-                        <div class="view-mode-tabs">
-                            <button
-                                type="button"
-                                class="view-mode-btn"
-                                :class="{ active: viewMode === 'mosaic' }"
-                                @click="viewMode = 'mosaic'; $nextTick(updateAdminGridUnit)"
-                            >
-                                🖼️ Mosaïque en direct (WYSIWYG)
-                            </button>
-                            <button
-                                type="button"
-                                class="view-mode-btn"
-                                :class="{ active: viewMode === 'compact' }"
-                                @click="viewMode = 'compact'"
-                            >
-                                📋 Grille compacte
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -846,15 +1653,17 @@ onUnmounted(() => {
                                 <div class="bulk-divider"></div>
 
                                 <!-- Tag Instagram -->
-                                <button type="button" class="bulk-btn" @click="showBulkTagModal = true">
-                                    🏷️ Tag Instagram
+                                <button type="button" class="bulk-btn" @click="showBulkTagModal = true" style="display: inline-flex; align-items: center; gap: 6px;">
+                                    <PhInstagramLogo :size="15" weight="fill" />
+                                    <span>Tag Instagram</span>
                                 </button>
 
                                 <div class="bulk-divider"></div>
 
                                 <!-- Supprimer -->
-                                <button type="button" class="bulk-btn bulk-btn-danger" @click="confirmBulkDelete = true">
-                                    🗑️ Supprimer ({{ selectedPhotoIds.length }})
+                                <button type="button" class="bulk-btn bulk-btn-danger" @click="confirmBulkDelete = true" style="display: inline-flex; align-items: center; gap: 6px;">
+                                    <PhTrash :size="15" weight="bold" />
+                                    <span>Supprimer ({{ selectedPhotoIds.length }})</span>
                                 </button>
 
                                 <button type="button" class="bulk-btn-close" @click="selectedPhotoIds = []" title="Désélectionner tout">
@@ -865,206 +1674,383 @@ onUnmounted(() => {
                     </div>
                 </Transition>
 
-                <!-- 1. VUE MOSAÏQUE RÉELLE (WYSIWYG INTERACTIVE) -->
-                <div v-if="project.photos.length > 0 && viewMode === 'mosaic'">
-                    <div class="admin-mosaic-grid" ref="adminGridRef">
-                        <div
-                            v-for="(photo, index) in project.photos"
-                            :key="photo.id"
-                            class="admin-mosaic-item"
-                            :class="[
-                                `span-c-${photo.span_cols || 3}`,
-                                `span-r-${photo.span_rows || 2}`,
-                                {
-                                    'is-dragging': draggingIndex === index,
-                                    'is-drag-over': dragOverIndex === index,
-                                    'is-cover': photo.is_cover,
-                                    'is-highlighted': photo.is_highlighted,
-                                    'is-selected': isPhotoSelected(photo.id)
-                                }
-                            ]"
-                            :style="getItemGridStyle(photo)"
-                            draggable="true"
-                            @dragstart="onDragStart($event, index)"
-                            @dragenter.prevent="onDragEnterItem($event, index)"
-                            @dragover.prevent="onDragOver($event, index)"
-                            @dragend="onDragEnd"
-                            @drop.prevent="onDrop($event, index)"
-                        >
-                            <!-- Image avec ratio exact sans rognage -->
-                            <div class="admin-mosaic-img-wrap">
-                                <img
-                                    :src="`/storage/${photo.thumbnail_path || photo.image_path}`"
-                                    :alt="photo.caption || 'Photo'"
-                                    loading="lazy"
-                                />
+                <!-- 1. VUE MOSAÏQUE RÉELLE (WYSIWYG INTERACTIVE PAR SLOTS) -->
+                <div v-if="project.photos.length > 0">
+                    <!-- Bac de photos en attente de placement (Dock) -->
+                    <div 
+                        v-if="unplacedPhotos.length > 0" 
+                        class="unplaced-photos-dock"
+                        @dragover.prevent
+                        @drop.prevent="onDropOnDock"
+                    >
+                        <div class="dock-header">
+                            <div class="dock-title">
+                                <PhImages :size="18" weight="bold" />
+                                <span>Photos en attente de placement ({{ unplacedPhotos.length }})</span>
                             </div>
-
-                            <!-- Top bar: Selection checkbox, Order, badges, quick actions -->
-                            <div class="admin-mosaic-topbar">
-                                <div style="display: flex; align-items: center; gap: 6px;">
-                                    <label class="item-checkbox-wrap" @click.stop>
-                                        <input 
-                                            type="checkbox" 
-                                            class="bulk-checkbox"
-                                            :checked="isPhotoSelected(photo.id)" 
-                                            @change="toggleSelectPhoto(photo.id)" 
-                                        />
-                                    </label>
-
-                                    <div class="admin-mosaic-badge-order" :title="`Ordre #${index + 1} · Format: ${photo.span_cols >= photo.span_rows ? 'Paysage' : 'Portrait'}`">
-                                        <span class="drag-handle">⠿</span> #{{ index + 1 }}
-                                        <span style="opacity: 0.7; font-size: 0.7rem;">{{ photo.span_cols >= photo.span_rows ? '🖼️' : '📱' }}</span>
-                                    </div>
-                                </div>
-                                <div class="admin-mosaic-top-actions">
-                                    <button
-                                        type="button"
-                                        class="badge-toggle"
-                                        :class="{ active: photo.is_cover }"
-                                        @click.stop="toggleCover(photo)"
-                                        title="Photo de couverture"
-                                    >
-                                        {{ photo.is_cover ? '★ Cover' : 'Cover' }}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="badge-toggle"
-                                        :class="{ active: photo.is_highlighted }"
-                                        @click.stop="toggleHighlight(photo)"
-                                        title="Coup de cœur accueil"
-                                    >
-                                        {{ photo.is_highlighted ? '★ Star' : '☆' }}
-                                    </button>
-                                </div>
+                            <div class="dock-actions">
+                                <span class="dock-hint">Glissez les photos dans les emplacements vides ci-dessous</span>
+                                <button type="button" class="dock-btn-auto" @click="autoFillEmptySlots">
+                                    ⚡ Remplir automatiquement les emplacements vides
+                                </button>
                             </div>
-
-                            <!-- Bottom bar: Format selector & edit/delete -->
-                            <div class="admin-mosaic-bottombar">
-                                <div class="format-buttons-group">
-                                    <button
-                                        v-for="fmt in PHOTO_FORMATS"
-                                        :key="fmt.id"
-                                        type="button"
-                                        class="fmt-btn"
-                                        :class="{ active: getCurrentFormatId(photo) === fmt.id }"
-                                        @click.stop="quickSetFormat(photo, fmt)"
-                                        :title="`${fmt.label} (${fmt.desc})`"
-                                    >
-                                        <span class="fmt-icon">{{ fmt.icon }}</span>
-                                        <span class="fmt-text">{{ fmt.shortLabel }}</span>
-                                    </button>
-                                </div>
-
-                                <div class="admin-card-edit-btns">
-                                    <button
-                                        type="button"
-                                        class="btn-icon"
-                                        @click.stop="openPhotoEdit(photo)"
-                                        title="Modifier légende et tags"
-                                    >
-                                        ✏️
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="btn-icon btn-icon-danger"
-                                        @click.stop="deletePhoto(photo.id)"
-                                        title="Supprimer la photo"
-                                    >
-                                        🗑️
-                                    </button>
-                                </div>
+                        </div>
+                        <div class="dock-photos-strip">
+                            <div 
+                                v-for="photo in unplacedPhotos"
+                                :key="photo.id"
+                                class="dock-photo-item"
+                                draggable="true"
+                                @dragstart="onDockPhotoDragStart($event, photo)"
+                                @click="openPhotoEdit(photo)"
+                                :title="`Glisser cette photo vers un emplacement vide\n${photo.caption || 'Sans légende'}`"
+                            >
+                                <img :src="`/storage/${photo.thumbnail_path || photo.image_path}`" loading="lazy" />
+                                <span class="dock-photo-badge">
+                                    {{ ((photo.span_cols || 3) >= (photo.span_rows || 2)) ? 'Paysage' : 'Portrait' }}
+                                </span>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- 2. VUE GRILLE COMPACTE (CARTES SIMPLES) -->
-                <div v-else-if="project.photos.length > 0 && viewMode === 'compact'" class="photos-admin-compact-grid">
-                    <div
-                        v-for="(photo, index) in project.photos"
-                        :key="photo.id"
-                        class="photo-compact-card"
-                        draggable="true"
-                        @dragstart="onDragStart($event, index)"
-                        @dragenter.prevent="onDragEnterItem($event, index)"
-                        @dragover.prevent="onDragOver($event, index)"
-                        @dragend="onDragEnd"
-                        @drop.prevent="onDrop($event, index)"
-                        :class="{
-                            'is-dragging': draggingIndex === index,
-                            'is-drag-over': dragOverIndex === index,
-                            'is-cover': photo.is_cover,
-                            'is-highlighted': photo.is_highlighted,
-                            'is-selected': isPhotoSelected(photo.id)
-                        }"
-                    >
-                        <div class="photo-compact-img">
-                            <img :src="`/storage/${photo.thumbnail_path || photo.image_path}`" :alt="photo.caption || 'Photo'" />
-                            <div class="photo-compact-order" style="display: flex; align-items: center; gap: 4px;">
-                                <label class="item-checkbox-wrap-compact" @click.stop>
-                                    <input 
-                                        type="checkbox" 
-                                        class="bulk-checkbox"
-                                        :checked="isPhotoSelected(photo.id)" 
-                                        @change="toggleSelectPhoto(photo.id)" 
-                                    />
-                                </label>
-                                <span>#{{ index + 1 }}</span>
+                    <div class="admin-mosaic-grid" ref="adminGridRef">
+                        <!-- Message si aucune ligne harmonique n'a encore été créée -->
+                        <div v-if="compositionRows.length === 0" class="empty-rows-banner">
+                            <div class="empty-rows-title">Votre galerie n'a pas encore de ligne harmonique</div>
+                            <p class="empty-rows-text">
+                                Choisissez une première structure géométrique pour y glisser vos photos sans aucun espace vide.
+                            </p>
+                            <button
+                                type="button"
+                                class="btn-add-harmonic-row"
+                                style="margin-top: var(--space-md);"
+                                @click="openAddRowModal(0)"
+                            >
+                                ➕ Choisir une première ligne harmonique
+                            </button>
+                        </div>
+
+                        <!-- Blocs de lignes harmoniques étagées -->
+                        <div
+                            v-for="(row, bIdx) in compositionRows"
+                            :key="row.id"
+                            class="admin-composition-row-block"
+                            :class="{
+                                'is-row-dragging': draggingRowIndex === bIdx,
+                                'is-row-drag-over': dragOverRowIndex === bIdx,
+                            }"
+                            @dragover.prevent="onRowDragOver($event, bIdx)"
+                            @drop.prevent="onRowDrop($event, bIdx)"
+                        >
+                            <!-- Barre d'en-tête de ligne (permet aussi de balancer une photo directement sur la ligne) -->
+                            <div 
+                                class="admin-mosaic-row-bar"
+                                @dragover.prevent
+                                @drop.prevent.stop="onRowDropPhoto($event, bIdx)"
+                            >
+                                <div class="row-bar-info">
+                                    <div 
+                                        class="row-drag-handle"
+                                        draggable="true"
+                                        @dragstart.stop="onRowDragStart($event, bIdx)"
+                                        title="Glisser pour déplacer cette ligne complète"
+                                    >
+                                        ⠿
+                                    </div>
+                                    <span class="row-bar-tag">Ligne #{{ bIdx + 1 }}</span>
+                                    <span class="row-bar-count">
+                                        {{ row.slots.filter(s => s.photo).length }} / {{ row.slots.length }} photo{{ row.slots.length > 1 ? 's' : '' }}
+                                    </span>
+                                </div>
+                                <div class="row-bar-actions">
+                                    <button
+                                        type="button"
+                                        class="row-bar-btn"
+                                        :disabled="bIdx === 0"
+                                        @click.stop="moveRowBlockUp(bIdx)"
+                                        title="Monter cette ligne complète"
+                                    >
+                                        ▲ Monter
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="row-bar-btn"
+                                        :disabled="bIdx === compositionRows.length - 1"
+                                        @click.stop="moveRowBlockDown(bIdx)"
+                                        title="Descendre cette ligne complète"
+                                    >
+                                        ▼ Descendre
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="row-bar-btn"
+                                        @click.stop="invertRowBlock(row)"
+                                        title="Inverser gauche/droite la disposition des photos de cette ligne"
+                                    >
+                                        ⇄ Inverser
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="row-bar-btn row-bar-btn-add"
+                                        @click.stop="openAddRowModal(bIdx + 1)"
+                                        title="Insérer une nouvelle ligne harmonique en-dessous"
+                                    >
+                                        + Insérer ligne
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="row-bar-btn row-bar-btn-danger"
+                                        @click.stop="removeHarmonicRow(bIdx)"
+                                        title="Supprimer cette ligne (les photos retournent en attente)"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
                             </div>
-                            <div class="photo-compact-badges">
-                                <span v-if="photo.is_cover" class="badge badge-accent" style="font-size: 0.65rem;">Cover</span>
-                                <span v-if="photo.is_highlighted" class="badge badge-primary" style="font-size: 0.65rem;">★</span>
+
+                            <!-- Grille 12 colonnes de cette ligne -->
+                            <div 
+                                class="admin-mosaic-row-grid"
+                                :style="{
+                                    gridAutoRows: 'var(--grid-unit, 70px)',
+                                }"
+                            >
+                                <template v-for="(slot, sIdx) in row.slots" :key="slot.id || sIdx">
+                                    <!-- 1. SLOT OCCUPÉ PAR UNE PHOTO -->
+                                    <div
+                                        v-if="slot.photo"
+                                        class="admin-mosaic-item"
+                                        :class="[
+                                            `span-c-${slot.photo.span_cols || slot.span_cols}`,
+                                            `span-r-${slot.photo.span_rows || slot.span_rows}`,
+                                            {
+                                                'is-dragging': draggedItem && draggedItem.photo && draggedItem.photo.id === slot.photo.id,
+                                                'is-drag-over': dragOverSlot && dragOverSlot.id === slot.id,
+                                                'is-cover': slot.photo.is_cover,
+                                                'is-highlighted': slot.photo.is_highlighted,
+                                                'is-selected': isPhotoSelected(slot.photo.id)
+                                            }
+                                        ]"
+                                        :style="getSlotGridStyle(slot)"
+                                        draggable="true"
+                                        @dragstart="onPhotoDragStart($event, slot, bIdx)"
+                                        @dragenter.prevent="onSlotDragEnter($event, slot)"
+                                        @dragover.prevent="onSlotDragOver($event, slot)"
+                                        @dragend="onPhotoDragEnd"
+                                        @drop.prevent="onDropOnSlot($event, slot, bIdx)"
+                                    >
+                                        <!-- Image avec ratio exact sans rognage -->
+                                        <div class="admin-mosaic-img-wrap">
+                                            <img
+                                                :src="`/storage/${slot.photo.thumbnail_path || slot.photo.image_path}`"
+                                                :alt="slot.photo.caption || 'Photo'"
+                                                loading="lazy"
+                                            />
+                                        </div>
+
+                                        <!-- Top bar: Selection checkbox, Order, badges, quick actions -->
+                                        <div class="admin-mosaic-topbar">
+                                            <div style="display: flex; align-items: center; gap: 6px;">
+                                                <label class="item-checkbox-wrap" @click.stop>
+                                                    <input 
+                                                        type="checkbox" 
+                                                        class="bulk-checkbox"
+                                                        :checked="isPhotoSelected(slot.photo.id)" 
+                                                        @change="toggleSelectPhoto(slot.photo.id)" 
+                                                    />
+                                                </label>
+
+                                                <div class="admin-mosaic-badge-order" :title="`Ordre #${(slot.photo.display_order || 0) + 1} · Format: ${slot.photo.span_cols >= slot.photo.span_rows ? 'Paysage' : 'Portrait'}`">
+                                                    <span class="drag-handle">⠿</span> #{{ (slot.photo.display_order || 0) + 1 }}
+                                                    <span style="opacity: 0.7; font-size: 0.7rem;">{{ slot.photo.span_cols >= slot.photo.span_rows ? '3:2' : '2:3' }}</span>
+                                                </div>
+                                            </div>
+                                            <div class="admin-mosaic-top-actions">
+                                                <button
+                                                    type="button"
+                                                    class="badge-toggle"
+                                                    :class="{ active: slot.photo.is_cover }"
+                                                    @click.stop="toggleCover(slot.photo)"
+                                                    title="Photo de couverture"
+                                                >
+                                                    {{ slot.photo.is_cover ? '★ Cover' : 'Cover' }}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="badge-toggle"
+                                                    :class="{ active: slot.photo.is_highlighted }"
+                                                    @click.stop="toggleHighlight(slot.photo)"
+                                                    title="Coup de cœur accueil"
+                                                >
+                                                    {{ slot.photo.is_highlighted ? '★ Star' : '☆' }}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="btn-icon btn-icon-detach"
+                                                    @click.stop="detachPhotoFromSlot(slot, bIdx)"
+                                                    title="Détacher cette photo de la ligne (la remettre en attente)"
+                                                >
+                                                    ↩
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Bottom bar: Déplacement intra-ligne, Division/Fusion & édition/suppression -->
+                                        <div class="admin-mosaic-bottombar">
+                                            <div class="slot-geometry-actions">
+                                                <button
+                                                    v-if="findSlotMove(row, slot, 'left')"
+                                                    type="button"
+                                                    class="slot-geo-btn"
+                                                    @click.stop="moveSlotInRow(row, slot, 'left')"
+                                                    title="Décaler vers la gauche"
+                                                >←</button>
+                                                <button
+                                                    v-if="findSlotMove(row, slot, 'up')"
+                                                    type="button"
+                                                    class="slot-geo-btn"
+                                                    @click.stop="moveSlotInRow(row, slot, 'up')"
+                                                    title="Décaler vers le haut"
+                                                >↑</button>
+                                                <button
+                                                    v-if="findSlotMove(row, slot, 'down')"
+                                                    type="button"
+                                                    class="slot-geo-btn"
+                                                    @click.stop="moveSlotInRow(row, slot, 'down')"
+                                                    title="Décaler vers le bas"
+                                                >↓</button>
+                                                <button
+                                                    v-if="findSlotMove(row, slot, 'right')"
+                                                    type="button"
+                                                    class="slot-geo-btn"
+                                                    @click.stop="moveSlotInRow(row, slot, 'right')"
+                                                    title="Décaler vers la droite"
+                                                >→</button>
+                                                <button
+                                                    v-if="canSubdivideSlot(slot)"
+                                                    type="button"
+                                                    class="slot-geo-btn slot-geo-btn-split"
+                                                    @click.stop="subdivideSlot(row, slot)"
+                                                    title="Diviser ce Grand format en 4 Petits formats"
+                                                >⊞ ×4</button>
+                                                <button
+                                                    v-if="findMergeGroup(row, slot)"
+                                                    type="button"
+                                                    class="slot-geo-btn slot-geo-btn-merge"
+                                                    @click.stop="mergeSlots(row, slot)"
+                                                    title="Fusionner les 4 Petits formats en 1 Grand format"
+                                                >⬜ Grand</button>
+                                            </div>
+
+                                            <div class="admin-card-edit-btns">
+                                                <button
+                                                    type="button"
+                                                    class="btn-icon"
+                                                    @click.stop="openPhotoEdit(slot.photo)"
+                                                    title="Modifier légende et tags"
+                                                >
+                                                    <PhPencilSimple :size="14" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="btn-icon btn-icon-danger"
+                                                    @click.stop="deletePhoto(slot.photo.id)"
+                                                    title="Supprimer la photo"
+                                                >
+                                                    <PhTrash :size="14" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 2. SLOT VIDE (Emplacement en attente de photo) -->
+                                    <div
+                                        v-else
+                                        class="admin-mosaic-empty-slot"
+                                        :class="[
+                                            `span-c-${slot.span_cols}`,
+                                            `span-r-${slot.span_rows}`,
+                                            {
+                                                'is-drag-over': dragOverSlot && dragOverSlot.id === slot.id,
+                                            }
+                                        ]"
+                                        :style="getSlotGridStyle(slot)"
+                                        @dragenter.prevent="onSlotDragEnter($event, slot)"
+                                        @dragover.prevent="onSlotDragOver($event, slot)"
+                                        @drop.prevent="onDropOnSlot($event, slot, bIdx)"
+                                    >
+                                        <div class="empty-slot-content">
+                                            <span class="empty-slot-icon">{{ (slot.span_cols >= slot.span_rows) ? '🖼️' : '📱' }}</span>
+                                            <span class="empty-slot-label">{{ slot.label }}</span>
+                                            <span class="empty-slot-sub">Glisser une photo ici</span>
+
+                                            <div class="slot-geometry-actions empty-slot-geo-actions" @click.stop>
+                                                <button
+                                                    v-if="findSlotMove(row, slot, 'left')"
+                                                    type="button"
+                                                    class="slot-geo-btn"
+                                                    @click.stop="moveSlotInRow(row, slot, 'left')"
+                                                    title="Décaler vers la gauche"
+                                                >←</button>
+                                                <button
+                                                    v-if="findSlotMove(row, slot, 'up')"
+                                                    type="button"
+                                                    class="slot-geo-btn"
+                                                    @click.stop="moveSlotInRow(row, slot, 'up')"
+                                                    title="Décaler vers le haut"
+                                                >↑</button>
+                                                <button
+                                                    v-if="findSlotMove(row, slot, 'down')"
+                                                    type="button"
+                                                    class="slot-geo-btn"
+                                                    @click.stop="moveSlotInRow(row, slot, 'down')"
+                                                    title="Décaler vers le bas"
+                                                >↓</button>
+                                                <button
+                                                    v-if="findSlotMove(row, slot, 'right')"
+                                                    type="button"
+                                                    class="slot-geo-btn"
+                                                    @click.stop="moveSlotInRow(row, slot, 'right')"
+                                                    title="Décaler vers la droite"
+                                                >→</button>
+                                                <button
+                                                    v-if="canSubdivideSlot(slot)"
+                                                    type="button"
+                                                    class="slot-geo-btn slot-geo-btn-split"
+                                                    @click.stop="subdivideSlot(row, slot)"
+                                                    title="Diviser ce Grand format en 4 Petits formats"
+                                                >⊞ ×4</button>
+                                                <button
+                                                    v-if="findMergeGroup(row, slot)"
+                                                    type="button"
+                                                    class="slot-geo-btn slot-geo-btn-merge"
+                                                    @click.stop="mergeSlots(row, slot)"
+                                                    title="Fusionner les 4 Petits formats en 1 Grand format"
+                                                >⬜ Grand</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
                             </div>
                         </div>
 
-                        <div class="photo-compact-actions">
-                            <div class="format-buttons-group" style="margin-bottom: var(--space-xs);">
-                                <button
-                                    v-for="fmt in PHOTO_FORMATS"
-                                    :key="fmt.id"
-                                    type="button"
-                                    class="fmt-btn"
-                                    :class="{ active: getCurrentFormatId(photo) === fmt.id }"
-                                    @click="quickSetFormat(photo, fmt)"
-                                    :title="fmt.label"
-                                >
-                                    {{ fmt.shortLabel }}
-                                </button>
-                            </div>
-
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div style="display: flex; gap: 4px;">
-                                    <button
-                                        type="button"
-                                        class="badge-toggle"
-                                        :class="{ active: photo.is_cover }"
-                                        @click="toggleCover(photo)"
-                                        style="font-size: 0.7rem; padding: 0.15rem 0.4rem;"
-                                    >
-                                        Cover
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="badge-toggle"
-                                        :class="{ active: photo.is_highlighted }"
-                                        @click="toggleHighlight(photo)"
-                                        style="font-size: 0.7rem; padding: 0.15rem 0.4rem;"
-                                    >
-                                        ★
-                                    </button>
-                                </div>
-                                <div style="display: flex; gap: var(--space-xs);">
-                                    <button class="btn btn-ghost btn-sm" @click="openPhotoEdit(photo)">✏️</button>
-                                    <button class="btn btn-danger btn-sm" @click="deletePhoto(photo.id)">🗑️</button>
-                                </div>
-                            </div>
+                        <!-- Bouton d'ajout de ligne en fin de projet -->
+                        <div class="admin-add-row-bottom">
+                            <button
+                                type="button"
+                                class="btn-add-harmonic-row"
+                                @click="openAddRowModal(compositionRows.length)"
+                            >
+                                ➕ Ajouter une ligne harmonique
+                            </button>
                         </div>
                     </div>
                 </div>
 
                 <div v-else class="empty-state">
-                    <div class="empty-state-icon">🖼️</div>
+                    <div class="empty-state-icon" style="display: flex; justify-content: center;">
+                        <PhImages :size="54" weight="thin" class="text-muted" />
+                    </div>
                     <div class="empty-state-title">Aucune photo dans ce shooting</div>
                     <div class="empty-state-text">Glissez des photos dans la zone ci-dessus pour composer votre galerie.</div>
                 </div>
@@ -1154,6 +2140,54 @@ onUnmounted(() => {
             </div>
         </AdminModal>
 
+        <!-- Modale Spacieuse de sélection de Ligne Harmonique -->
+        <AdminModal :show="showAddRowModal" @close="showAddRowModal = false" title="Choisir une ligne harmonique" maxWidth="1600px">
+            <div style="padding: 4px;">
+                <div class="harmonic-modal-grid">
+                    <div
+                        v-for="tpl in HARMONY_TEMPLATES"
+                        :key="tpl.id"
+                        class="harmonic-modal-card"
+                        @click="applyHarmonyTemplate(tpl, addRowTargetIndex)"
+                    >
+                        <!-- Dessin géométrique fidèle du modèle (grille 12 colonnes) -->
+                        <div class="harmonic-card-preview-area">
+                            <div 
+                                class="harmonic-card-mini-grid"
+                                :style="{
+                                    gridTemplateRows: `repeat(${tpl.totalRows}, 15px)`
+                                }"
+                            >
+                                <div
+                                    v-for="(slot, sIdx) in tpl.slots"
+                                    :key="sIdx"
+                                    class="harmonic-card-slot"
+                                    :class="[
+                                        `slot-w-${slot.span_cols}`,
+                                        (slot.span_cols >= slot.span_rows) ? 'is-landscape-slot' : 'is-portrait-slot'
+                                    ]"
+                                    :style="{
+                                        gridColumn: `${slot.col_start} / span ${slot.span_cols}`,
+                                        gridRow: `${slot.row_start} / span ${slot.span_rows}`,
+                                    }"
+                                >
+                                    <span class="slot-badge-text">{{ (slot.span_cols >= slot.span_rows) ? 'Paysage' : 'Portrait' }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="harmonic-card-info">
+                            <div class="harmonic-card-title">{{ tpl.title }}</div>
+                            <div class="harmonic-card-footer">
+                                <span class="harmonic-card-badge">{{ tpl.photosCount }} photos</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </AdminModal>
+
+
         <!-- Bulk Deletion Confirmation -->
         <ConfirmModal
             :show="confirmBulkDelete"
@@ -1186,6 +2220,128 @@ onUnmounted(() => {
     gap: 4px;
 }
 
+/* Templates Toggle Button */
+.btn-templates-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    color: #c7d2fe;
+    padding: 0.38rem 0.85rem;
+    border-radius: var(--radius-full);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-templates-toggle:hover {
+    background: rgba(99, 102, 241, 0.25);
+    border-color: rgba(99, 102, 241, 0.6);
+    color: white;
+}
+
+.btn-templates-toggle.active {
+    background: var(--primary);
+    border-color: var(--primary-light);
+    color: white;
+    box-shadow: 0 0 12px var(--primary-glow);
+}
+
+/* Templates Drawer Panel */
+.templates-drawer-panel {
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--border-color);
+    animation: fadeIn 0.3s ease;
+}
+
+.templates-drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-md);
+}
+
+.templates-grid-scroll {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: var(--space-md);
+}
+
+.template-card-preview {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.template-card-preview:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* Dessin filaire géométrique de la ligne */
+.template-mini-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 3px;
+    background: rgba(0, 0, 0, 0.35);
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 8px;
+}
+
+.template-mini-slot {
+    background: rgba(99, 102, 241, 0.25);
+    border: 1px solid rgba(99, 102, 241, 0.55);
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #e0e7ff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    transition: all 0.2s ease;
+}
+
+.template-card-preview:hover .template-mini-slot {
+    background: rgba(99, 102, 241, 0.45);
+    border-color: var(--primary-light);
+}
+
+.template-card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.template-card-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.template-card-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    color: #c7d2fe;
+    padding: 0.1rem 0.45rem;
+    border-radius: var(--radius-full);
+}
+
 .view-mode-btn {
     border: none;
     background: transparent;
@@ -1208,14 +2364,655 @@ onUnmounted(() => {
     box-shadow: 0 2px 8px var(--primary-glow);
 }
 
-/* --- Admin Mosaic Grid (Exact Replica of Public Grid) --- */
+/* Auto-fill Gaps Button */
+.btn-gap-autofill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.25));
+    border: 1px solid rgba(168, 85, 247, 0.4);
+    color: #e0e7ff;
+    padding: 0.38rem 0.85rem;
+    border-radius: var(--radius-full);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    animation: gapPulse 3s infinite ease-in-out;
+}
+
+.btn-gap-autofill:hover {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(168, 85, 247, 0.4));
+    border-color: rgba(168, 85, 247, 0.7);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(168, 85, 247, 0.25);
+}
+
+@keyframes gapPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.4); }
+    50% { box-shadow: 0 0 12px 2px rgba(168, 85, 247, 0.3); }
+}
+
+/* Gap Slots (Interactive Ghost Placeholders) */
+.admin-mosaic-gap-slot {
+    position: relative;
+    border-radius: var(--radius-md);
+    border: 2px dashed rgba(168, 85, 247, 0.45);
+    background: rgba(168, 85, 247, 0.04);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-sm);
+    transition: all 0.25s ease;
+    cursor: pointer;
+    user-select: none;
+    min-height: 100px;
+}
+
+.admin-mosaic-gap-slot:hover {
+    border-color: rgba(168, 85, 247, 0.8);
+    background: rgba(168, 85, 247, 0.09);
+    transform: scale(1.01);
+}
+
+.gap-slot-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 4px;
+    pointer-events: none;
+}
+
+.gap-slot-icon {
+    font-size: 1.4rem;
+    opacity: 0.8;
+}
+
+.gap-slot-title {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.gap-slot-badge {
+    background: rgba(168, 85, 247, 0.2);
+    border: 1px solid rgba(168, 85, 247, 0.4);
+    color: #e9d5ff;
+    padding: 0.15rem 0.55rem;
+    border-radius: var(--radius-full);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.gap-slot-hint {
+    font-size: 0.68rem;
+    color: var(--text-faint);
+}
+
+/* Lignes de composition déplaçables */
+.admin-mosaic-row-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.45rem 0.85rem;
+    background: linear-gradient(90deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.9));
+    border: 1px dashed rgba(99, 102, 241, 0.45);
+    border-radius: var(--radius-sm);
+    z-index: 10;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+    user-select: none;
+    margin-bottom: 6px;
+    height: 38px;
+    align-self: start;
+}
+
+.row-bar-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.row-bar-tag {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #e0e7ff;
+    background: rgba(99, 102, 241, 0.25);
+    border: 1px solid rgba(99, 102, 241, 0.5);
+    padding: 0.15rem 0.55rem;
+    border-radius: var(--radius-full);
+}
+
+.row-bar-count {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.row-bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.row-bar-btn {
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.08);
+    color: #e0e7ff;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.22rem 0.55rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.row-bar-btn:hover:not(:disabled) {
+    background: var(--primary);
+    border-color: var(--primary-light);
+    color: white;
+    transform: translateY(-1px);
+}
+
+.row-bar-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* --- Admin Mosaic Grid (Row-based container) --- */
 .admin-mosaic-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+}
+
+.admin-composition-row-block {
+    background: rgba(15, 23, 42, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm);
+    transition: all 0.2s ease;
+}
+
+.admin-composition-row-block.is-row-dragging {
+    opacity: 0.35;
+    border-color: var(--primary);
+    transform: scale(0.99);
+}
+
+.admin-composition-row-block.is-row-drag-over {
+    border-color: var(--primary-light);
+    box-shadow: 0 0 20px var(--primary-glow);
+    background: rgba(99, 102, 241, 0.08);
+}
+
+.admin-mosaic-row-grid {
     display: grid;
     grid-template-columns: repeat(var(--grid-cols, 12), 1fr);
-    grid-auto-rows: var(--grid-unit, 70px);
     grid-auto-flow: dense;
     gap: 16px;
     width: 100%;
+}
+
+.row-drag-handle {
+    cursor: grab;
+    padding: 2px 6px;
+    font-size: 1rem;
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.06);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    transition: all 0.15s ease;
+}
+
+.row-drag-handle:hover {
+    color: white;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.row-drag-handle:active {
+    cursor: grabbing;
+}
+
+.row-bar-btn-add {
+    background: rgba(99, 102, 241, 0.25) !important;
+    border-color: rgba(99, 102, 241, 0.5) !important;
+    color: #e0e7ff !important;
+}
+
+.row-bar-btn-add:hover {
+    background: var(--primary) !important;
+    color: white !important;
+    border-color: var(--primary-light) !important;
+}
+
+/* Modale de sélection de Ligne Harmonique */
+.harmonic-modal-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    padding: 10px 4px;
+}
+
+@media (max-width: 1400px) {
+    .harmonic-modal-grid {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    }
+}
+
+.harmonic-modal-card {
+    background: var(--bg-deep);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.harmonic-modal-card:hover {
+    border-color: var(--primary);
+    background: rgba(99, 102, 241, 0.15);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 0 16px var(--primary-glow);
+    z-index: 2;
+}
+
+.harmonic-card-preview-area {
+    height: 145px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 8px;
+    margin-bottom: var(--space-sm);
+}
+
+.harmonic-card-mini-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 2px;
+    width: 100%;
+}
+
+.harmonic-card-slot {
+    background: rgba(99, 102, 241, 0.3);
+    border: 1px solid rgba(129, 140, 248, 0.7);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    overflow: hidden;
+    padding: 2px;
+    transition: all 0.15s ease;
+}
+
+.harmonic-card-slot.is-landscape-slot {
+    background: rgba(59, 130, 246, 0.3);
+    border-color: rgba(96, 165, 250, 0.8);
+}
+
+.harmonic-card-slot.is-portrait-slot {
+    background: rgba(168, 85, 247, 0.3);
+    border-color: rgba(192, 132, 252, 0.8);
+}
+
+.harmonic-modal-card:hover .harmonic-card-slot.is-landscape-slot {
+    background: rgba(59, 130, 246, 0.55);
+    border-color: #bfdbfe;
+}
+
+.harmonic-modal-card:hover .harmonic-card-slot.is-portrait-slot {
+    background: rgba(168, 85, 247, 0.55);
+    border-color: #e9d5ff;
+}
+
+.slot-badge-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.harmonic-card-slot.slot-w-2 .slot-badge-text {
+    font-size: 0.65rem;
+    letter-spacing: -0.3px;
+}
+
+.harmonic-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.harmonic-card-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #f8fafc;
+    line-height: 1.3;
+    min-height: 2.4em;
+    display: flex;
+    align-items: center;
+}
+
+.harmonic-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.harmonic-card-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: rgba(99, 102, 241, 0.25);
+    border: 1px solid rgba(99, 102, 241, 0.5);
+    color: #e0e7ff;
+    padding: 0.18rem 0.6rem;
+    border-radius: var(--radius-full);
+}
+
+/* --- Bac de photos en attente de placement (Dock) --- */
+.unplaced-photos-dock {
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md) var(--space-lg);
+    margin-bottom: var(--space-xl);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    transition: border-color 0.2s ease;
+}
+
+.dock-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-md);
+    flex-wrap: wrap;
+    gap: var(--space-md);
+}
+
+.dock-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    color: #f1f5f9;
+    font-size: 0.95rem;
+}
+
+.dock-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.dock-hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.dock-btn-auto {
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.4);
+    color: #c7d2fe;
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.dock-btn-auto:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.dock-photos-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-bottom: 4px;
+}
+
+.dock-photo-item {
+    position: relative;
+    flex-shrink: 0;
+    width: 90px;
+    height: 70px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    cursor: grab;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.2s ease;
+    background: #000;
+}
+
+.dock-photo-item:hover {
+    border-color: var(--primary-light);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.5);
+}
+
+.dock-photo-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.dock-photo-badge {
+    position: absolute;
+    bottom: 2px;
+    left: 2px;
+    right: 2px;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(4px);
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    text-align: center;
+    padding: 1px 0;
+    border-radius: 2px;
+}
+
+/* --- Slots vides (Emplacements en attente dans une ligne) --- */
+.admin-mosaic-empty-slot {
+    border: 2px dashed rgba(255, 255, 255, 0.18);
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.02);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    min-height: 80px;
+    cursor: pointer;
+}
+
+.admin-mosaic-empty-slot:hover,
+.admin-mosaic-empty-slot.is-drag-over {
+    border-color: var(--primary);
+    background: rgba(99, 102, 241, 0.12);
+    box-shadow: inset 0 0 16px rgba(99, 102, 241, 0.2);
+    transform: scale(0.995);
+}
+
+.empty-slot-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    text-align: center;
+    padding: 8px;
+    pointer-events: none;
+}
+
+.empty-slot-icon {
+    font-size: 1.3rem;
+}
+
+.empty-slot-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #cbd5e1;
+}
+
+.empty-slot-sub {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+/* --- Contrôles géométriques intra-ligne (Déplacement ← ↑ ↓ → & Division/Fusion) --- */
+.slot-geometry-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    pointer-events: auto;
+}
+
+.empty-slot-geo-actions {
+    margin-top: 6px;
+    justify-content: center;
+}
+
+.slot-geo-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 26px;
+    height: 24px;
+    padding: 0 6px;
+    border-radius: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(15, 23, 42, 0.85);
+    color: #f8fafc;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    line-height: 1;
+}
+
+.slot-geo-btn:hover {
+    background: var(--primary);
+    border-color: var(--primary-light);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(99, 102, 241, 0.4);
+}
+
+.slot-geo-btn-split {
+    background: rgba(59, 130, 246, 0.28);
+    border-color: rgba(96, 165, 250, 0.55);
+    color: #93c5fd;
+    font-size: 0.72rem;
+}
+
+.slot-geo-btn-split:hover {
+    background: #2563eb;
+    border-color: #60a5fa;
+    color: #fff;
+}
+
+.slot-geo-btn-merge {
+    background: rgba(168, 85, 247, 0.28);
+    border-color: rgba(192, 132, 252, 0.55);
+    color: #d8b4fe;
+    font-size: 0.72rem;
+}
+
+.slot-geo-btn-merge:hover {
+    background: #9333ea;
+    border-color: #c084fc;
+    color: #fff;
+}
+
+.empty-rows-banner {
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+    border-radius: var(--radius-lg);
+    padding: var(--space-2xl);
+    text-align: center;
+}
+
+.empty-rows-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin-bottom: var(--space-xs);
+}
+
+.empty-rows-text {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.row-bar-btn-danger {
+    color: #fca5a5 !important;
+    border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+.row-bar-btn-danger:hover {
+    background: rgba(239, 68, 68, 0.2) !important;
+    border-color: #ef4444 !important;
+    color: white !important;
+}
+
+.btn-icon-detach {
+    font-size: 0.9rem;
+    color: #94a3b8;
+}
+
+.btn-icon-detach:hover {
+    color: #f1f5f9;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.admin-add-row-bottom {
+    display: flex;
+    justify-content: center;
+    margin: var(--space-xl) 0 var(--space-md);
+}
+
+.btn-add-harmonic-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.25));
+    border: 1px dashed rgba(99, 102, 241, 0.6);
+    color: #e0e7ff;
+    padding: 0.75rem 1.75rem;
+    border-radius: var(--radius-full);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-add-harmonic-row:hover,
+.btn-add-harmonic-row.active {
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    border-color: transparent;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px var(--primary-glow);
 }
 
 .admin-mosaic-item {

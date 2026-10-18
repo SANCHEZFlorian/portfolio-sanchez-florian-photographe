@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import PublicLayout from '@/Layouts/PublicLayout.vue';
 import ScrollReveal from '@/Components/ScrollReveal.vue';
 import CategoryFilter from '@/Components/CategoryFilter.vue';
+import { PhCamera, PhMapPin, PhInstagramLogo, PhArrowRight } from '@phosphor-icons/vue';
 
 defineOptions({ layout: PublicLayout });
 
@@ -67,10 +68,13 @@ const filterCategory = (slug) => {
                                 loading="lazy"
                             />
                             <div v-else class="project-card-placeholder">
-                                <span>📷</span>
+                                <PhCamera :size="40" weight="thin" />
                             </div>
                             <div class="project-card-overlay">
-                                <span class="btn btn-ghost btn-sm">Voir le projet →</span>
+                                <span class="btn btn-ghost btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
+                                    <span>Voir le projet</span>
+                                    <PhArrowRight :size="14" weight="bold" />
+                                </span>
                             </div>
                         </div>
                         <div class="project-card-info">
@@ -82,16 +86,15 @@ const filterCategory = (slug) => {
                             
                             <div class="project-card-footer">
                                 <div class="project-card-meta">
-                                    <span v-if="project.location">📍 {{ project.location }}</span>
+                                    <span v-if="project.location" style="display: inline-flex; align-items: center; gap: 4px;">
+                                        <PhMapPin :size="14" weight="fill" />
+                                        <span>{{ project.location }}</span>
+                                    </span>
                                     <span v-if="project.date">{{ new Date(project.date).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) }}</span>
                                     <span v-if="project.photo_count">{{ project.photo_count }} photos</span>
                                 </div>
                                 <div v-if="project.instagram_url" class="project-card-insta" @click.stop.prevent="window.open(project.instagram_url, '_blank')">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-                                        <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-                                        <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
-                                    </svg>
+                                    <PhInstagramLogo :size="14" weight="fill" />
                                     <span>{{ getInstaUsername(project.instagram_url) }}</span>
                                 </div>
                             </div>
@@ -101,7 +104,9 @@ const filterCategory = (slug) => {
             </div>
 
             <div v-if="projects.length === 0" class="empty-state">
-                <div class="empty-state-icon">📷</div>
+                <div class="empty-state-icon">
+                    <PhCamera :size="48" weight="light" />
+                </div>
                 <div class="empty-state-title">Aucun projet pour le moment</div>
                 <div class="empty-state-text">De nouveaux projets arrivent bientôt !</div>
             </div>

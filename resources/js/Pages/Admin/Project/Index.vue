@@ -1,6 +1,7 @@
 <script setup>
 import { Head, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { PhPlus, PhCamera, PhPencilSimple, PhStar } from '@phosphor-icons/vue';
 
 const props = defineProps({
     projects: Array,
@@ -13,7 +14,10 @@ const props = defineProps({
     <AuthenticatedLayout>
         <template #header>
             <h2>Projets</h2>
-            <Link href="/admin/projects/create" class="btn btn-primary">+ Nouveau projet</Link>
+            <Link href="/admin/projects/create" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px;">
+                <PhPlus :size="16" weight="bold" />
+                <span>Nouveau projet</span>
+            </Link>
         </template>
 
         <div class="card" v-if="projects.length > 0">
@@ -42,12 +46,18 @@ const props = defineProps({
                             </span>
                         </td>
                         <td>
-                            <span v-if="project.is_featured" class="badge badge-accent">★</span>
+                            <span v-if="project.is_featured" class="badge badge-accent" style="display: inline-flex; align-items: center; gap: 4px;">
+                                <PhStar :size="12" weight="fill" />
+                                <span>Vedette</span>
+                            </span>
                             <span v-else class="text-muted">—</span>
                         </td>
                         <td>
                             <div style="display: flex; gap: var(--space-sm);">
-                                <Link :href="`/admin/projects/${project.id}/edit`" class="btn btn-ghost btn-sm">Éditer</Link>
+                                <Link :href="`/admin/projects/${project.id}/edit`" class="btn btn-ghost btn-sm" style="display: inline-flex; align-items: center; gap: 4px;">
+                                    <PhPencilSimple :size="14" />
+                                    <span>Éditer</span>
+                                </Link>
                             </div>
                         </td>
                     </tr>
@@ -56,10 +66,15 @@ const props = defineProps({
         </div>
 
         <div v-else class="empty-state">
-            <div class="empty-state-icon">📸</div>
+            <div class="empty-state-icon" style="display: flex; justify-content: center;">
+                <PhCamera :size="54" weight="thin" class="text-muted" />
+            </div>
             <div class="empty-state-title">Aucun projet</div>
             <div class="empty-state-text">Créez votre premier projet pour commencer à organiser vos shootings.</div>
-            <Link href="/admin/projects/create" class="btn btn-primary" style="margin-top: var(--space-lg);">+ Créer un projet</Link>
+            <Link href="/admin/projects/create" class="btn btn-primary" style="margin-top: var(--space-lg); display: inline-flex; align-items: center; gap: 6px;">
+                <PhPlus :size="16" weight="bold" />
+                <span>Créer un projet</span>
+            </Link>
         </div>
     </AuthenticatedLayout>
 </template>

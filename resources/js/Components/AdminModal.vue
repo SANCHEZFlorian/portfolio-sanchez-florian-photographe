@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue';
+import { PhX } from '@phosphor-icons/vue';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -25,7 +26,9 @@ const close = () => {
                 <div class="modal-container" :style="{ maxWidth: maxWidth }">
                     <div class="modal-header">
                         <h3 class="modal-title">{{ title }}</h3>
-                        <button class="modal-close" @click="close">&times;</button>
+                        <button class="modal-close" @click="close" title="Fermer">
+                            <PhX :size="20" weight="bold" />
+                        </button>
                     </div>
                     <div class="modal-body">
                         <slot />

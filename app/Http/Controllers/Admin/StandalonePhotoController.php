@@ -178,6 +178,8 @@ class StandalonePhotoController extends Controller
             'order.*.display_order' => 'required|integer',
             'order.*.col_start' => 'nullable|integer',
             'order.*.row_start' => 'nullable|integer',
+            'order.*.span_cols' => 'nullable|integer',
+            'order.*.span_rows' => 'nullable|integer',
         ]);
 
         foreach ($request->input('order') as $item) {
@@ -187,6 +189,12 @@ class StandalonePhotoController extends Controller
             }
             if (array_key_exists('row_start', $item)) {
                 $updateData['row_start'] = $item['row_start'];
+            }
+            if (array_key_exists('span_cols', $item)) {
+                $updateData['span_cols'] = $item['span_cols'];
+            }
+            if (array_key_exists('span_rows', $item)) {
+                $updateData['span_rows'] = $item['span_rows'];
             }
             Photo::where('id', $item['id'])->update($updateData);
         }

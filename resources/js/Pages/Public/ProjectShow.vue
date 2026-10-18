@@ -5,6 +5,7 @@ import PublicLayout from '@/Layouts/PublicLayout.vue';
 import ScrollReveal from '@/Components/ScrollReveal.vue';
 import MasonryGrid from '@/Components/MasonryGrid.vue';
 import PhotoLightbox from '@/Components/PhotoLightbox.vue';
+import { PhCamera, PhMapPin, PhCalendarBlank, PhInstagramLogo, PhArrowLeft } from '@phosphor-icons/vue';
 
 defineOptions({ layout: PublicLayout });
 
@@ -42,7 +43,10 @@ const getInstaUsername = (url) => {
     <section class="project-header">
         <div class="container">
             <ScrollReveal>
-                <Link href="/projets" class="back-link">← Retour aux projets</Link>
+                <Link href="/projets" class="back-link" style="display: inline-flex; align-items: center; gap: 8px;">
+                    <PhArrowLeft :size="16" weight="bold" />
+                    <span>Retour aux projets</span>
+                </Link>
             </ScrollReveal>
 
             <ScrollReveal :delay="0.1">
@@ -50,9 +54,18 @@ const getInstaUsername = (url) => {
                     <span v-if="project.category" class="badge badge-primary">{{ project.category.name }}</span>
                     <h1>{{ project.title }}</h1>
                     <div class="project-meta">
-                        <span v-if="project.location">📍 {{ project.location }}</span>
-                        <span v-if="project.date">📅 {{ new Date(project.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) }}</span>
-                        <span>📷 {{ project.photos.length }} photos</span>
+                        <span v-if="project.location" style="display: inline-flex; align-items: center; gap: 4px;">
+                            <PhMapPin :size="15" weight="fill" />
+                            <span>{{ project.location }}</span>
+                        </span>
+                        <span v-if="project.date" style="display: inline-flex; align-items: center; gap: 4px;">
+                            <PhCalendarBlank :size="15" weight="fill" />
+                            <span>{{ new Date(project.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) }}</span>
+                        </span>
+                        <span style="display: inline-flex; align-items: center; gap: 4px;">
+                            <PhCamera :size="15" weight="fill" />
+                            <span>{{ project.photos.length }} photos</span>
+                        </span>
                     </div>
                     <p v-if="project.description" class="project-description">{{ project.description }}</p>
                     <a
@@ -62,11 +75,7 @@ const getInstaUsername = (url) => {
                         rel="noopener"
                         class="insta-link-premium"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-                            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-                            <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
-                        </svg>
+                        <PhInstagramLogo :size="18" weight="fill" />
                         <span>{{ getInstaUsername(project.instagram_url) }}</span>
                     </a>
                 </div>
@@ -84,7 +93,9 @@ const getInstaUsername = (url) => {
             />
 
             <div v-else class="empty-state">
-                <div class="empty-state-icon">📷</div>
+                <div class="empty-state-icon">
+                    <PhCamera :size="48" weight="light" />
+                </div>
                 <div class="empty-state-title">Galerie en préparation</div>
                 <div class="empty-state-text">Les photos de ce projet arrivent bientôt.</div>
             </div>

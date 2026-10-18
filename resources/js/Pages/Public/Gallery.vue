@@ -5,6 +5,7 @@ import PublicLayout from '@/Layouts/PublicLayout.vue';
 import ScrollReveal from '@/Components/ScrollReveal.vue';
 import MasonryGrid from '@/Components/MasonryGrid.vue';
 import PhotoLightbox from '@/Components/PhotoLightbox.vue';
+import { PhCamera } from '@phosphor-icons/vue';
 
 defineOptions({ layout: PublicLayout });
 
@@ -73,7 +74,9 @@ const setCategory = (slug) => {
             />
 
             <div v-else class="empty-state">
-                <div class="empty-state-icon">📷</div>
+                <div class="empty-state-icon">
+                    <PhCamera :size="48" weight="light" />
+                </div>
                 <div class="empty-state-title">Aucune photo trouvée</div>
                 <div class="empty-state-text">D'autres clichés arrivent très bientôt dans cet espace.</div>
             </div>

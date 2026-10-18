@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue';
 import AdminModal from '@/Components/AdminModal.vue';
+import { PhWarning, PhQuestion } from '@phosphor-icons/vue';
 
 const props = defineProps({
     show: Boolean,
@@ -22,8 +23,12 @@ const handleConfirm = () => {
 <template>
     <AdminModal :show="show" :title="title" maxWidth="400px" @close="emit('close')">
         <div class="confirm-content">
-            <div v-if="type === 'danger'" class="confirm-icon danger">⚠️</div>
-            <div v-else class="confirm-icon primary">❓</div>
+            <div v-if="type === 'danger'" class="confirm-icon danger" style="display: flex; justify-content: center;">
+                <PhWarning :size="48" weight="duotone" style="color: var(--danger);" />
+            </div>
+            <div v-else class="confirm-icon primary" style="display: flex; justify-content: center;">
+                <PhQuestion :size="48" weight="duotone" style="color: var(--primary-light);" />
+            </div>
             <p class="confirm-message">{{ message }}</p>
         </div>
 

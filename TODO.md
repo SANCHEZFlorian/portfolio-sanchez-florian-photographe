@@ -6,13 +6,68 @@ Suivi des galeries, optimisation des clichés et expérience visuelle.
 
 ## 🎯 En cours
 - [ ] Sélection et compression optimisée des clichés haute résolution
-- [ ] Effets de transition fluide / distorsion visuelle au survol des photos (PixiJS / WebGL)
 
 ## 📌 À venir
 - [ ] Système de commande de tirages ou formulaire de devis de prestation
 - [ ] Protection et filigrane léger des clichés présentés
+- [ ] Tag(s) Instagram au niveau projet (avec support de plusieurs tags) au lieu de par photo
+- [ ] Multi-tags par photo pour les projets de type catégorie auto (ex: portrait, détails, etc.)
 
 ## ✅ Terminé
+- [x] **Manipulation Géométrique Intra-Ligne (Décalage `← ↑ ↓ →`, Division `⊞ ×4` & Fusion `⬜ Grand`)** :
+  - **Décalage local intelligent (`←`, `↑`, `↓`, `→`)** : possibilité de déplacer individuellement n'importe quel slot ou sous-bloc (qu'il soit vide ou occupé par une photo) à gauche, à droite, en haut ou en bas à l'intérieur de sa ligne harmonique sans jamais créer de trou ni briser les dimensions globales.
+    - *Exemples* : décaler un *Grand Portrait* ($4\times 6$) vers la droite pour faire passer la colonne de *2 Petits Portraits* ($2\times 3$) à sa gauche, ou décaler un *Grand Paysage* ($6\times 4$) vers le haut/bas pour l'encadrer entre *2 Petits Paysages* en haut et *2 Petits Paysages* en bas.
+  - **Division en 4 (`⊞ ×4`)** : tout *Grand Paysage* ($6\times 4$) peut être divisé en *4 Petits Paysages* ($3\times 2$), et tout *Grand Portrait* ($4\times 6$) peut être divisé en *4 Petits Portraits* ($2\times 3$) sur exactement la même emprise géométrique.
+  - **Fusion en Grand format (`⬜ Grand`)** : tout carré $2\times 2$ de *4 Petits Paysages* ($3\times 2$) ou de *4 Petits Portraits* ($2\times 3$) peut être fusionné à nouveau en *1 Grand Paysage* ($6\times 4$) ou *1 Grand Portrait* ($4\times 6$).
+  - Déclinaison complète sur [`Admin/Project/Edit.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Admin/Project/Edit.vue) et [`Admin/Standalone/Index.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Admin/Standalone/Index.vue).
+- [x] **Architecture par Lignes Harmoniques Vides, Slots & Bac de Photos en Attente (Dock)** :
+  - **Lignes harmoniques créées vides par défaut** : l'ajout d'une ligne génère désormais une structure géométrique avec des emplacements réservés vides (`photo: null`), sans jamais aspirer ou réassigner les photos existantes contre la volonté de l'utilisateur.
+  - **Bac de photos en attente (Dock)** : affichage des clichés non encore affectés dans un bandeau supérieur clair avec badges d'orientation (*Paysage* / *Portrait*), glisser-déposer intuitif vers n'importe quel emplacement libre ou barre de ligne, et bouton de remplissage automatique intelligent.
+  - **Glisser-déposer flexible & permutation (Swap)** :
+    - Glisser une photo vers un slot vide : prise d'emplacement immédiate avec ajustement automatique au format du slot.
+    - Glisser vers un slot déjà occupé : permutation instantanée (*Swap*) entre les deux clichés sans casser la composition.
+    - Glisser vers l'en-tête de ligne : assignation automatique au premier slot disponible de cette ligne.
+    - Bouton détacher (`↩`) sur chaque cliché et zone de drop sur le dock pour retirer une photo d'une ligne vers le bac d'attente.
+  - **Grande modale de composition ultra-large (1600px)** :
+    - Agrandissement généreux de la modale en largeur et en hauteur, avec zone de prévisualisation centrée de 145px et grille filaire étirée à 15px par unité de rangée (au lieu de 9px), respectant fidèlement les proportions naturelles des clichés.
+    - Différenciation chromatique immédiate (bleu azur pour les paysages, violet néon pour les portraits), typographies nettes avec ombrage et sans débordement de texte.
+  - **Persistance et validation backend intégrales** : prise en charge et mise à jour de `span_cols` et `span_rows` aux côtés de `col_start`, `row_start` et `display_order` dans [`PhotoController.php`](file:///d:/Code/portfolio-sanchez-florian-photographe/app/Http/Controllers/Admin/PhotoController.php) et [`StandalonePhotoController.php`](file:///d:/Code/portfolio-sanchez-florian-photographe/app/Http/Controllers/Admin/StandalonePhotoController.php).
+  - Déclinaison complète et harmonisée sur [`Admin/Project/Edit.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Admin/Project/Edit.vue) et [`Admin/Standalone/Index.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Admin/Standalone/Index.vue).
+- [x] **Grande Modale Aérée de Lignes Harmoniques & Épure de l'Interface WYSIWYG** :
+  - **Nettoyage de l'en-tête d'administration** : suppression des boutons superflus (*Structures Harmoniques*, *Combler les vides*, basculeur *Mosaïque en direct / Grille compacte*). L'administration fonctionne désormais exclusivement en mode mosaïque réelle WYSIWYG interactive.
+  - **Grande modale de choix de ligne (`<AdminModal>` 880px)** : remplacement du dropdown popover trop étroit par une modale spacieuse et lisible sans défilement excessif.
+  - **Aperçus géométriques filaires 12 colonnes nets** : affichage en cartes aérées avec badges détaillant le nombre et types de clichés requis.
+  - Déclinaison harmonisée sur [`Admin/Project/Edit.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Admin/Project/Edit.vue) et [`Admin/Standalone/Index.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Admin/Standalone/Index.vue).
+- [x] **Ajustements Identité, Spécialités Réelles (Animaux, Paysages, Voitures, Motos), Boutons & Instagram** :
+  - **Typographie du logo Navbar** : harmonisation de `FS` et `Florian Sanchez` avec la police [`Playfair Display`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/css/app.css#L747-L770) pour faire un écho immédiat avec le titre d'accueil.
+  - **Boutons & Contraste idéal** : refonte de `.btn-primary` (« Découvrir mes projets », « Envoyer le message ») avec un dégradé bleu-violet signature lumineux et équilibré, éliminant les contrastes excessifs ou écrasés tout en s'accordant parfaitement avec `.btn-accent` (« Prendre contact »).
+  - **Spécialités authentiques de Florian** : suppression du badge sur la photo et remplacement des textes de portrait par les 4 vrais domaines de Florian : **Animaux** ([`PhPawPrint`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Public/Home.vue#L218-L225)), **Paysages** ([`PhMountains`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Public/Home.vue#L226-L233)), **Automobile** ([`PhCar`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Public/Home.vue#L234-L241)) et **Motos** ([`PhMotorcycle`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Public/Home.vue#L242-L249)), avec textes et citation d'intention adaptés.
+  - **Badge officiel Instagram `@ascorio17`** : intégration du badge cliquable officiel vers [instagram.com/ascorio17/](https://www.instagram.com/ascorio17/) dans la page de contact ([`Contact.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Public/Contact.vue#L80-L95)) et la page À propos ([`About.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Public/About.vue#L64-L78)), ainsi qu'en base de données dans `site_settings`.
+- [x] **Refonte typographique artistique, boutons « nuit mate & soyeuse » et enrichissement de la section À propos** :
+  - Métamorphose du titre « Florian Sanchez » ([`Home.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Public/Home.vue)) : abandon de la typo sans-serif lourde en graisse 800 pour la somptueuse typographie sérif [`Playfair Display`](https://fonts.google.com/specimen/Playfair+Display) en poids 500 noble et sculpté avec léger tracking aéré et lueur nocturne douce.
+  - Harmonisation éditoriale des grands titres de sections (`h1`, `h2`) avec `Playfair Display` tout en préservant la neutralité fonctionnelle de l'administration.
+  - Remplacement complet des emojis restants sur l'ensemble de la vitrine publique ([`Contact.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Public/Contact.vue), [`Projects.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Public/Projects.vue), [`ProjectShow.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Public/ProjectShow.vue), [`About.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Public/About.vue), [`Gallery.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Public/Gallery.vue)) au profit d'icônes Phosphor officielles.
+- [x] **Intégration PixiJS v8 & Toile WebGL interactive** :
+  - Nouveau composant universel [`PixiBackground.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Components/PixiBackground.vue) haute performance (`powerPreference: "low-power"`).
+  - Mode *Bokeh Vitrine* : grands cercles ambiants épurés aux couleurs de la charte (#293ecc / #9d4edd), sans reflets blancs artificiels ni cercles concentriques surchargés, animés d'une dérive fluide, d'une respiration douce, d'une parallaxe au scroll et d'une déstabilisation/répulsion élastique réactive au passage de la souris.
+  - Mode *Admin Constellation* : fond ambiant discret pour le back-office avec particules de poussières de studio et liens énergétiques doux.
+  - Gestion automatique de la mise en pause lors de la réduction ou de la perte de focus de l'onglet.
+- [x] **Suppression intégrale des emojis au profit de `@phosphor-icons/vue`** :
+  - Remplacement de tous les emojis par la suite Phosphor officielle dans l'admin ([`AuthenticatedLayout.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Layouts/AuthenticatedLayout.vue), [`Dashboard.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Dashboard.vue), [`Project/Index.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Admin/Project/Index.vue), [`Project/Edit.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Admin/Project/Edit.vue), [`Category/Index.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Admin/Category/Index.vue), [`Contact/Index.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Admin/Contact/Index.vue), [`Standalone/Index.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Admin/Standalone/Index.vue), [`AdminModal.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Components/AdminModal.vue), [`ConfirmModal.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Components/ConfirmModal.vue)).
+  - Remplacement des icônes d'orientation par les ratios géométriques professionnels `3:2` et `2:3`.
+- [x] **Refonte cinématique de l'ouverture des images ([`PhotoLightbox.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Components/PhotoLightbox.vue))** :
+  - Effet d'ouverture de diaphragme focale avec flash de studio progressif et flou optique dynamique.
+  - Halo d'exposition lumineux derrière le cliché.
+  - Viseur appareil photo (HUD) indiquant le mode RAW et le numéro du cliché (`RAW • 04 / 28`).
+  - Commandes complètes Phosphor (`PhX`, `PhCaretLeft`, `PhCaretRight`, `PhCornersOut`, `PhInstagramLogo`).
+  - Prise en charge du mode plein écran (`F`) et du balayage tactile mobile (Touch Swipe).
+- [x] **Sublimation du trait signature bleu-violet de la Navbar** :
+  - Balayage lumineux avec aura néon dégradée sous les liens de navigation.
+  - Déclinaison de l'effet sous forme d'indicateur latéral lumineux sur la barre d'administration.
+  - Soulignement d'accentuation sur les titres de sections.
+- [x] **Animations de défilement immersives ([`ScrollReveal.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Components/ScrollReveal.vue))** :
+  - Transition avec adoucissement de profondeur focale (`blur(6px)` vers `blur(0px)`) et échelle dynamique.
+  - Nettoyage automatique des propriétés GSAP (`clearProps`) pour ne pas entraver les survols CSS des cartes.
 - [x] Structure de base de la vitrine photographique
 - [x] Organisation par thématiques / séries de photos
 - [x] **Système de mosaïque photographique modulaire (12 colonnes)** :
@@ -50,5 +105,32 @@ Suivi des galeries, optimisation des clichés et expérience visuelle.
   - Décalage visuel en temps réel des photos environnantes pour faire immédiatement de la place au nouvel emplacement.
   - Feedback visuel clair (effet d'ombre, halo et mise en avant de la photo déplacée).
   - Sauvegarde automatique en arrière-plan au relâchement (`@dragend`) sans rechargement de page.
+- [x] **Architecture par Lignes Harmoniques & Blocs de composition 100% étanches** :
+  - **Structure en bandes indépendantes (`.admin-composition-row-block`)** : remplacement du flux dense par des lignes harmoniques autonomes munies de leur propre sous-grille 12 colonnes (`.admin-mosaic-row-grid`), éliminant définitivement les escaliers et les chevauchements involontaires où une photo passe sous une autre.
+  - **Déplacement et inversion de lignes entières** :
+    - Poignée de glisser-déposer dédiée (`⠿`) sur chaque en-tête de ligne pour réordonner des tranches complètes à la souris.
+    - Commandes instantanées `▲ Monter`, `▼ Descendre` et `⇄ Inverser` (effet miroir gauche/droite automatique sans altérer les formats).
+    - Bouton `+ Insérer ligne` intégré à chaque bandeau et bouton `➕ Ajouter une ligne harmonique` en bas de mosaïque (type tableur).
+  - **Modale de modèles géométriques avec aperçus filaires 12 colonnes fidèles** : choix visuel instantané d'une structure mathématique parfaite sans icônes ni noms trompeurs.
+  - **Drag & drop interne par permutation de slots (Swap propre)** : lâcher une photo sur un emplacement échange directement les coordonnées et formats entre les deux clichés sans bousculer le reste de la ligne.
+  - **Catalogue exhaustif et dédoublonné des 10 archétypes géométriques purs** :
+    1. *4 Petits Paysages* ($3\times 2$, $H=2$).
+    2. *6 Petits Portraits* ($2\times 3$, $H=3$).
+    3. *2 Grands Paysages* ($6\times 4$, $H=4$).
+    4. *3 Grands Portraits* ($4\times 6$, $H=6$).
+    5. *1 Grand Paysage + 4 Petits Paysages* ($H=4$).
+    6. *1 G. Paysage + 1 G. Portrait + 2 P. Paysages + 2 P. Portraits* ($H=6$).
+    7. *4 Petits Paysages + 6 Petits Portraits alternés* ($H=5$).
+    8. *2 G. Paysages + 2 P. Paysages + 6 P. Portraits* ($H=8$).
+    9. *2 G. Paysages + 2 P. Paysages + 1 G. Portrait + 2 P. Portraits* ($H=8$).
+    10. *1 Grand Portrait + 8 Petits Portraits* ($H=6$).
+  - Intégré et synchronisé dans l'édition de projet ([`Admin/Project/Edit.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Admin/Project/Edit.vue)) et la galerie autonome ([`Admin/Standalone/Index.vue`](file:///d:/Code/portfolio-sanchez-florian-photographe/resources/js/Pages/Admin/Standalone/Index.vue)).
+- [x] **Sélecteur de modèles en Dropdown Popover discret (Style sélecteur d'emoji)** :
+  - Remplacement de la grande modale intrusive par un mini-menu popover contextuel ancré sous le bouton `+ Insérer ligne` et au-dessus de `➕ Ajouter une ligne harmonique`.
+  - Aperçus géométriques en vignettes carrées filaires 12 colonnes avec badges du nombre de photos nécessaires.
+  - Clic en dehors (click-outside) et touche de fermeture rapide (`✕`) pour une ergonomie optimale sans interruption du flux de travail.
+
+
+
 
 

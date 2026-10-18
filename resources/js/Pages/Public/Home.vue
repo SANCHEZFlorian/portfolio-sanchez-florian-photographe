@@ -6,6 +6,7 @@ import ScrollReveal from '@/Components/ScrollReveal.vue';
 import MasonryGrid from '@/Components/MasonryGrid.vue';
 import PhotoLightbox from '@/Components/PhotoLightbox.vue';
 import gsap from 'gsap';
+import { PhInstagramLogo, PhArrowRight, PhCamera, PhPawPrint, PhMountains, PhCar, PhMotorcycle } from '@phosphor-icons/vue';
 
 defineOptions({ layout: PublicLayout });
 
@@ -75,9 +76,6 @@ const openLightbox = (photo) => {
     <section class="hero" ref="heroRef">
         <div class="hero-bg">
             <div class="hero-gradient"></div>
-            <div class="hero-particles">
-                <div class="particle" v-for="i in 6" :key="i" :class="`p-${i}`"></div>
-            </div>
         </div>
 
         <div class="hero-content">
@@ -91,10 +89,11 @@ const openLightbox = (photo) => {
                 </p>
                 <div class="hero-cta">
                     <Link href="/projets" class="btn btn-primary btn-lg">
-                        Découvrir mes projets
+                        <span>Découvrir mes projets</span>
+                        <PhArrowRight :size="17" weight="bold" />
                     </Link>
                     <Link href="/contact" class="btn btn-ghost btn-lg">
-                        Me contacter
+                        <span>Me contacter</span>
                     </Link>
                 </div>
             </div>
@@ -150,11 +149,7 @@ const openLightbox = (photo) => {
                                     <span v-if="project.photo_count">{{ project.photo_count }} photos</span>
                                 </div>
                                 <div v-if="project.instagram_url" class="project-card-insta" @click.stop.prevent="window.open(project.instagram_url, '_blank')">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-                                        <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-                                        <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
-                                    </svg>
+                                    <PhInstagramLogo :size="14" weight="fill" />
                                     <span>{{ getInstaUsername(project.instagram_url) }}</span>
                                 </div>
                             </div>
@@ -164,8 +159,9 @@ const openLightbox = (photo) => {
             </div>
 
             <ScrollReveal class="text-center" :delay="0.3" style="margin-top: var(--space-2xl);">
-                <Link href="/projets" class="btn btn-ghost btn-lg">
-                    Tous les projets →
+                <Link href="/projets" class="btn btn-ghost btn-lg" style="display: inline-flex; align-items: center; gap: 8px;">
+                    <span>Tous les projets</span>
+                    <PhArrowRight :size="16" weight="bold" />
                 </Link>
             </ScrollReveal>
         </div>
@@ -197,22 +193,81 @@ const openLightbox = (photo) => {
     </section>
 
     <!-- About Teaser -->
-    <section class="section">
+    <section class="section about-section-wrap">
         <div class="container">
             <div class="about-teaser">
                 <ScrollReveal :x="-30" :y="0">
                     <div class="about-teaser-text">
                         <span class="section-eyebrow">À propos</span>
-                        <h2>Passionné par la lumière</h2>
-                        <p>
-                            {{ settings?.bio_short || "Photographe passionné, je capture les moments qui racontent des histoires. De la photo de portrait à la photo urbaine, chaque cliché est une invitation au voyage visuel." }}
+                        <h2 class="about-headline">
+                            Passionné par la <span class="gradient-text display-text">lumière</span>
+                        </h2>
+
+                        <div class="about-quote-box">
+                            <span class="about-quote-symbol">“</span>
+                            <p class="about-quote-text">
+                                Saisir l'instinct animal, la force des grands paysages et l'énergie brute de la mécanique.
+                            </p>
+                        </div>
+
+                        <p class="about-body-text">
+                            {{ settings?.bio_short || "Photographe passionné, je pose mon objectif sur ce qui me fait vibrer : la beauté et la vivacité du monde animal, l'immensité des paysages naturels ainsi que les lignes et la puissance des voitures et des motos. Chaque cliché est une quête de lumière, de textures et d'instants authentiques." }}
                         </p>
-                        <Link href="/a-propos" class="btn btn-ghost">En savoir plus</Link>
+
+                        <!-- Univers & Spécialités authentiques -->
+                        <div class="about-specialties-grid">
+                            <div class="specialty-card">
+                                <div class="specialty-icon-wrap">
+                                    <PhPawPrint :size="18" weight="fill" />
+                                </div>
+                                <div class="specialty-info">
+                                    <span class="specialty-title">Animaux</span>
+                                    <span class="specialty-desc">Faune sauvage & instants de vie</span>
+                                </div>
+                            </div>
+                            <div class="specialty-card">
+                                <div class="specialty-icon-wrap">
+                                    <PhMountains :size="18" weight="fill" />
+                                </div>
+                                <div class="specialty-info">
+                                    <span class="specialty-title">Paysages</span>
+                                    <span class="specialty-desc">Grands espaces & lumières naturelles</span>
+                                </div>
+                            </div>
+                            <div class="specialty-card">
+                                <div class="specialty-icon-wrap">
+                                    <PhCar :size="18" weight="fill" />
+                                </div>
+                                <div class="specialty-info">
+                                    <span class="specialty-title">Automobile</span>
+                                    <span class="specialty-desc">Lignes, courbes & aérodynamisme</span>
+                                </div>
+                            </div>
+                            <div class="specialty-card">
+                                <div class="specialty-icon-wrap">
+                                    <PhMotorcycle :size="18" weight="fill" />
+                                </div>
+                                <div class="specialty-info">
+                                    <span class="specialty-title">Motos</span>
+                                    <span class="specialty-desc">Esprit mécanique & passion deux-roues</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="about-action">
+                            <Link href="/a-propos" class="btn btn-ghost about-btn">
+                                <span>En savoir plus sur mon univers</span>
+                                <PhArrowRight :size="16" weight="bold" />
+                            </Link>
+                        </div>
                     </div>
                 </ScrollReveal>
                 <ScrollReveal :x="30" :y="0" :delay="0.2">
                     <div class="about-teaser-visual">
-                        <img src="/images/florian-sanchez.jpg" alt="Florian Sanchez - Photographe" class="about-img" />
+                        <div class="about-img-frame">
+                            <img src="/images/florian-sanchez.jpg" alt="Florian Sanchez - Photographe" class="about-img" />
+                            <div class="about-frame-border"></div>
+                        </div>
                     </div>
                 </ScrollReveal>
             </div>
@@ -256,30 +311,11 @@ const openLightbox = (photo) => {
     position: absolute;
     inset: 0;
     background:
-        radial-gradient(ellipse at 20% 50%, var(--primary-glow-strong) 0%, transparent 50%),
-        radial-gradient(ellipse at 80% 20%, var(--accent-glow) 0%, transparent 40%),
-        radial-gradient(ellipse at 50% 80%, rgba(41, 62, 204, 0.08) 0%, transparent 50%);
+        radial-gradient(ellipse at 25% 45%, var(--primary-glow-strong) 0%, transparent 60%),
+        radial-gradient(ellipse at 75% 25%, var(--accent-glow) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 85%, rgba(41, 62, 204, 0.12) 0%, transparent 65%);
+    pointer-events: none;
 }
-
-.hero-particles {
-    position: absolute;
-    inset: 0;
-}
-
-.particle {
-    position: absolute;
-    border-radius: 50%;
-    background: var(--primary);
-    opacity: 0.08;
-    animation: float 6s ease-in-out infinite;
-}
-
-.p-1 { width: 300px; height: 300px; top: 10%; left: -5%; animation-delay: 0s; }
-.p-2 { width: 200px; height: 200px; top: 60%; right: 10%; animation-delay: -2s; background: var(--accent); }
-.p-3 { width: 150px; height: 150px; bottom: 20%; left: 30%; animation-delay: -4s; }
-.p-4 { width: 100px; height: 100px; top: 30%; right: 30%; animation-delay: -1s; background: var(--accent); opacity: 0.05; }
-.p-5 { width: 80px; height: 80px; bottom: 10%; right: 20%; animation-delay: -3s; }
-.p-6 { width: 250px; height: 250px; top: -5%; right: -5%; animation-delay: -5s; background: var(--accent); opacity: 0.04; }
 
 .hero-content {
     position: relative;
@@ -289,25 +325,29 @@ const openLightbox = (photo) => {
 }
 
 .hero-line-1 {
-    font-size: clamp(2.5rem, 7vw, 5rem);
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    margin-bottom: 0;
-    line-height: 1.1;
+    font-family: var(--font-display);
+    font-size: clamp(2.8rem, 7.5vw, 5.2rem);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: #f7f8fe;
+    text-shadow: 0 4px 35px rgba(41, 62, 204, 0.22);
+    margin-bottom: var(--space-xs);
+    line-height: 1.12;
 }
 
 .hero-line-2 {
-    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-size: clamp(2.2rem, 5.5vw, 3.8rem);
     margin-bottom: var(--space-lg);
     line-height: 1.2;
 }
 
 .hero-subtitle {
-    font-size: 1.15rem;
-    color: var(--text-muted);
-    max-width: 500px;
+    font-size: 1.16rem;
+    color: var(--text-secondary);
+    max-width: 520px;
     margin: 0 auto var(--space-2xl);
-    line-height: 1.7;
+    line-height: 1.75;
+    letter-spacing: 0.01em;
 }
 
 .hero-cta {
@@ -483,47 +523,190 @@ const openLightbox = (photo) => {
 }
 
 /* About Teaser */
+.about-section-wrap {
+    position: relative;
+    overflow: hidden;
+}
+
 .about-teaser {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1.15fr 0.85fr;
     gap: var(--space-4xl);
     align-items: center;
 }
 
 .about-teaser-text .section-eyebrow {
     text-align: left;
+    margin-bottom: var(--space-xs);
 }
 
-.about-teaser-text h2 {
+.about-headline {
     text-align: left;
+    font-size: clamp(2.2rem, 4vw, 3rem);
+    font-weight: 500;
+    line-height: 1.2;
+    margin-bottom: var(--space-lg);
+    color: #f5f6fe;
 }
 
-.about-teaser-text p {
+.about-quote-box {
+    position: relative;
+    padding: var(--space-md) var(--space-lg) var(--space-md) var(--space-xl);
+    background: linear-gradient(135deg, rgba(20, 25, 55, 0.55), rgba(12, 15, 35, 0.65));
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    margin-bottom: var(--space-lg);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.about-quote-symbol {
+    position: absolute;
+    top: -12px;
+    left: 8px;
+    font-family: var(--font-display);
+    font-size: 2.8rem;
+    color: rgba(157, 78, 221, 0.28);
+    line-height: 1;
+    pointer-events: none;
+}
+
+.about-quote-text {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1.08rem;
+    line-height: 1.6;
+    color: #e2e5fc;
+    margin-bottom: 0;
+}
+
+.about-body-text {
     font-size: 1.05rem;
-    line-height: 1.8;
+    line-height: 1.85;
+    color: var(--text-secondary);
     margin-bottom: var(--space-xl);
 }
 
+/* Univers & Spécialités */
+.about-specialties-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-md);
+    margin-bottom: var(--space-2xl);
+}
+
+.specialty-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: 0.85rem 1.1rem;
+    background: rgba(16, 20, 46, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: var(--radius-lg);
+    backdrop-filter: blur(8px);
+    transition: all var(--transition-base);
+}
+
+.specialty-card:hover {
+    border-color: rgba(160, 185, 255, 0.28);
+    background: rgba(22, 27, 60, 0.75);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.specialty-icon-wrap {
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, rgba(41, 62, 204, 0.25), rgba(157, 78, 221, 0.25));
+    border: 1px solid rgba(165, 185, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #c4b5fd;
+    flex-shrink: 0;
+    transition: transform var(--transition-fast);
+}
+
+.specialty-card:hover .specialty-icon-wrap {
+    transform: scale(1.08);
+    color: #ffffff;
+    border-color: rgba(181, 101, 247, 0.45);
+}
+
+.specialty-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.specialty-title {
+    font-size: 0.98rem;
+    font-weight: 600;
+    color: #f7f8fe;
+    letter-spacing: 0.01em;
+}
+
+.specialty-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.about-action {
+    display: flex;
+}
+
+.about-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: 0.8rem 1.8rem;
+    font-weight: 500;
+    color: #f0f2fe;
+}
+
+/* Visuel photo habillé */
 .about-teaser-visual {
     position: relative;
-    height: 500px;
-    border-radius: var(--radius-lg);
+    padding: var(--space-xs);
+}
+
+.about-img-frame {
+    position: relative;
+    height: 520px;
+    border-radius: var(--radius-xl);
     background: var(--bg-elevated);
-    border: 1px solid var(--border-color);
     overflow: hidden;
-    box-shadow: var(--shadow-lg);
+    box-shadow: 
+        0 20px 50px rgba(4, 6, 18, 0.75),
+        0 0 40px rgba(41, 62, 204, 0.12);
+    border: 1px solid rgba(135, 160, 255, 0.18);
 }
 
 .about-img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    filter: grayscale(0.2) contrast(1.1);
+    filter: contrast(1.08) saturate(1.05);
     transition: transform 0.8s var(--ease-out);
 }
 
-.about-teaser-visual:hover .about-img {
-    transform: scale(1.05);
+.about-img-frame:hover .about-img {
+    transform: scale(1.04);
+}
+
+.about-frame-border {
+    position: absolute;
+    inset: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-lg);
+    pointer-events: none;
+    transition: border-color var(--transition-base);
+}
+
+.about-img-frame:hover .about-frame-border {
+    border-color: rgba(160, 185, 255, 0.28);
 }
 
 /* CTA Section */
@@ -543,6 +726,10 @@ const openLightbox = (photo) => {
     .about-teaser {
         grid-template-columns: 1fr;
         gap: var(--space-2xl);
+    }
+
+    .about-specialties-grid {
+        grid-template-columns: 1fr;
     }
 
     .about-teaser-visual {

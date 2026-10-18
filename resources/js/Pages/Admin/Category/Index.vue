@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AdminModal from '@/Components/AdminModal.vue';
+import { PhPlus, PhTag, PhPencilSimple, PhTrash } from '@phosphor-icons/vue';
 
 const props = defineProps({
     categories: Array,
@@ -59,7 +60,10 @@ const deleteCategory = (cat) => {
     <AuthenticatedLayout>
         <template #header>
             <h2>Catégories</h2>
-            <button class="btn btn-primary" @click="openCreate">+ Nouvelle catégorie</button>
+            <button class="btn btn-primary" @click="openCreate" style="display: inline-flex; align-items: center; gap: 6px;">
+                <PhPlus :size="16" weight="bold" />
+                <span>Nouvelle catégorie</span>
+            </button>
         </template>
 
         <div class="card">
@@ -81,8 +85,14 @@ const deleteCategory = (cat) => {
                         <td>{{ cat.photos_count ?? 0 }}</td>
                         <td>
                             <div style="display: flex; gap: var(--space-sm);">
-                                <button class="btn btn-ghost btn-sm" @click="openEdit(cat)">Modifier</button>
-                                <button class="btn btn-danger btn-sm" @click="deleteCategory(cat)">Supprimer</button>
+                                <button class="btn btn-ghost btn-sm" @click="openEdit(cat)" style="display: inline-flex; align-items: center; gap: 4px;">
+                                    <PhPencilSimple :size="14" />
+                                    <span>Modifier</span>
+                                </button>
+                                <button class="btn btn-danger btn-sm" @click="deleteCategory(cat)" style="display: inline-flex; align-items: center; gap: 4px;">
+                                    <PhTrash :size="14" />
+                                    <span>Supprimer</span>
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -90,10 +100,15 @@ const deleteCategory = (cat) => {
             </table>
 
             <div v-else class="empty-state">
-                <div class="empty-state-icon">🏷️</div>
+                <div class="empty-state-icon" style="display: flex; justify-content: center;">
+                    <PhTag :size="54" weight="thin" class="text-muted" />
+                </div>
                 <div class="empty-state-title">Aucune catégorie</div>
                 <div class="empty-state-text">Créez votre première catégorie pour organiser vos projets.</div>
-                <button class="btn btn-primary" @click="openCreate" style="margin-top: var(--space-lg);">+ Créer une catégorie</button>
+                <button class="btn btn-primary" @click="openCreate" style="margin-top: var(--space-lg); display: inline-flex; align-items: center; gap: 6px;">
+                    <PhPlus :size="16" weight="bold" />
+                    <span>Créer une catégorie</span>
+                </button>
             </div>
         </div>
 

@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import PublicLayout from '@/Layouts/PublicLayout.vue';
 import ScrollReveal from '@/Components/ScrollReveal.vue';
+import { PhEnvelopeSimple, PhPhone, PhMapPin, PhInstagramLogo, PhCheckCircle } from '@phosphor-icons/vue';
 
 defineOptions({ layout: PublicLayout });
 
@@ -50,31 +51,48 @@ const submit = () => {
 
                         <div class="contact-details">
                             <div v-if="settings?.email" class="contact-detail">
-                                <span class="contact-icon">✉️</span>
+                                <span class="contact-icon">
+                                    <PhEnvelopeSimple :size="20" weight="fill" />
+                                </span>
                                 <div>
                                     <div class="contact-detail-label">Email</div>
                                     <a :href="`mailto:${settings.email}`">{{ settings.email }}</a>
                                 </div>
                             </div>
                             <div v-if="settings?.phone" class="contact-detail">
-                                <span class="contact-icon">📞</span>
+                                <span class="contact-icon">
+                                    <PhPhone :size="20" weight="fill" />
+                                </span>
                                 <div>
                                     <div class="contact-detail-label">Téléphone</div>
                                     <a :href="`tel:${settings.phone}`">{{ settings.phone }}</a>
                                 </div>
                             </div>
                             <div v-if="settings?.location" class="contact-detail">
-                                <span class="contact-icon">📍</span>
+                                <span class="contact-icon">
+                                    <PhMapPin :size="20" weight="fill" />
+                                </span>
                                 <div>
                                     <div class="contact-detail-label">Localisation</div>
                                     <span>{{ settings.location }}</span>
                                 </div>
                             </div>
-                            <div v-if="settings?.instagram_url" class="contact-detail">
-                                <span class="contact-icon">📸</span>
+                            <div class="contact-detail">
+                                <span class="contact-icon">
+                                    <PhInstagramLogo :size="20" weight="fill" />
+                                </span>
                                 <div>
                                     <div class="contact-detail-label">Instagram</div>
-                                    <a :href="settings.instagram_url" target="_blank" rel="noopener">Suivez-moi</a>
+                                    <a
+                                        :href="settings?.instagram_url || 'https://www.instagram.com/ascorio17/'"
+                                        target="_blank"
+                                        rel="noopener"
+                                        class="contact-insta-badge"
+                                    >
+                                        <PhInstagramLogo :size="15" weight="fill" />
+                                        <span>@ascorio17</span>
+                                        <span class="insta-badge-arrow">↗</span>
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -86,7 +104,9 @@ const submit = () => {
                     <div class="contact-form-card card">
                         <Transition name="fade" mode="out-in">
                             <div v-if="sent" class="success-msg" key="success">
-                                <div class="success-icon">✓</div>
+                                <div class="success-icon">
+                                    <PhCheckCircle :size="32" weight="fill" />
+                                </div>
                                 <h3>Message envoyé !</h3>
                                 <p>Merci pour votre message. Je vous répondrai dans les meilleurs délais.</p>
                                 <button class="btn btn-ghost" @click="sent = false">Envoyer un autre message</button>
@@ -192,6 +212,41 @@ const submit = () => {
 
 .contact-detail a:hover {
     color: var(--primary-light);
+}
+
+.contact-insta-badge {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 7px;
+    margin-top: 6px;
+    padding: 6px 14px;
+    background: linear-gradient(135deg, rgba(157, 78, 221, 0.16), rgba(41, 62, 204, 0.16));
+    border: 1px solid rgba(181, 101, 247, 0.35);
+    border-radius: var(--radius-full);
+    color: #e9d5ff !important;
+    font-size: 0.88rem !important;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all var(--transition-fast);
+}
+
+.contact-insta-badge:hover {
+    background: linear-gradient(135deg, rgba(157, 78, 221, 0.3), rgba(41, 62, 204, 0.3));
+    border-color: rgba(200, 140, 255, 0.65);
+    color: #ffffff !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(157, 78, 221, 0.28);
+}
+
+.insta-badge-arrow {
+    font-size: 0.78rem;
+    opacity: 0.7;
+    transition: transform var(--transition-fast);
+}
+
+.contact-insta-badge:hover .insta-badge-arrow {
+    transform: translate(2px, -2px);
+    opacity: 1;
 }
 
 .contact-form-card {

@@ -124,15 +124,40 @@ body {
 
 /* --- Typography --- */
 h1, h2, h3, h4, h5, h6 {
-    font-weight: 600;
     line-height: 1.2;
     color: var(--text-color);
 }
 
-h1 { font-size: 3rem; letter-spacing: -0.02em; }
-h2 { font-size: 2rem; letter-spacing: -0.01em; }
-h3 { font-size: 1.5rem; }
-h4 { font-size: 1.25rem; }
+h1 { 
+    font-family: var(--font-display);
+    font-size: 3rem; 
+    font-weight: 500;
+    letter-spacing: 0.01em; 
+}
+
+h2 { 
+    font-family: var(--font-display);
+    font-size: 2.2rem; 
+    font-weight: 500;
+    letter-spacing: 0.01em; 
+}
+
+h3 { 
+    font-size: 1.4rem; 
+    font-weight: 600;
+}
+
+h4 { 
+    font-size: 1.2rem; 
+    font-weight: 600;
+}
+
+/* En préservant la sobriété fonctionnelle dans l'espace d'administration */
+.admin-layout h1, .admin-layout h2, .admin-layout h3,
+.admin-header h1, .admin-header h2 {
+    font-family: var(--font-body);
+    font-weight: 600;
+}
 
 .display-text {
     font-family: var(--font-display);
@@ -142,6 +167,13 @@ h4 { font-size: 1.25rem; }
 
 .gradient-text {
     background: linear-gradient(135deg, var(--primary-light), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.gradient-night-text {
+    background: linear-gradient(135deg, #f5f6ff 0%, #c4cbff 50%, #b565f7 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -168,9 +200,9 @@ p {
     align-items: center;
     justify-content: center;
     gap: var(--space-sm);
-    padding: 0.65rem 1.4rem;
+    padding: 0.72rem 1.6rem;
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: 0.92rem;
     font-weight: 500;
     border: none;
     border-radius: var(--radius-md);
@@ -182,72 +214,101 @@ p {
     overflow: hidden;
 }
 
-.btn::after {
+/* Bouton principal : dégradé bleu-violet signature, lumineux, satiné & harmonieux */
+.btn-primary {
+    background: linear-gradient(135deg, #2c42e2 0%, #582cd1 55%, #8529da 100%);
+    color: #ffffff;
+    border: 1px solid rgba(175, 195, 255, 0.38);
+    box-shadow: 
+        inset 0 1px 1px rgba(255, 255, 255, 0.3),
+        0 4px 18px rgba(50, 65, 225, 0.35);
+    letter-spacing: 0.02em;
+}
+
+.btn-primary::before {
     content: '';
     position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
-    opacity: 0;
-    transition: opacity var(--transition-fast);
-}
-
-.btn:hover::after {
-    opacity: 1;
-}
-
-.btn-primary {
-    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-    color: white;
-    box-shadow: 0 4px 15px var(--primary-glow);
+    top: 0;
+    left: -120%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.22),
+        transparent
+    );
+    transform: skewX(-22deg);
+    transition: left 0.75s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px var(--primary-glow-strong);
+    color: #ffffff;
+    border-color: rgba(205, 220, 255, 0.6);
+    box-shadow: 
+        inset 0 1px 2px rgba(255, 255, 255, 0.4),
+        0 8px 25px rgba(70, 85, 245, 0.45);
+}
+
+.btn-primary:hover::before {
+    left: 150%;
 }
 
 .btn-accent {
-    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-    color: white;
-    box-shadow: 0 4px 15px var(--accent-glow);
+    background: linear-gradient(135deg, #9d4edd 0%, #7b2cbf 100%);
+    color: #ffffff;
+    border: 1px solid rgba(215, 160, 255, 0.35);
+    box-shadow: 
+        inset 0 1px 1px rgba(255, 255, 255, 0.25),
+        0 4px 18px rgba(157, 78, 221, 0.35);
+    letter-spacing: 0.02em;
 }
 
 .btn-accent:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(157, 78, 221, 0.3);
+    color: #ffffff;
+    border-color: rgba(230, 180, 255, 0.6);
+    box-shadow: 
+        inset 0 1px 2px rgba(255, 255, 255, 0.35),
+        0 8px 25px rgba(157, 78, 221, 0.45);
 }
 
 .btn-ghost {
-    background: transparent;
+    background: rgba(15, 18, 42, 0.55);
     color: var(--text-secondary);
-    border: 1px solid var(--border-color);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    backdrop-filter: blur(8px);
 }
 
 .btn-ghost:hover {
-    color: var(--text-color);
-    border-color: var(--primary);
-    background: var(--primary-glow);
+    color: #ffffff;
+    background: rgba(24, 29, 64, 0.75);
+    border-color: rgba(140, 165, 255, 0.32);
+    box-shadow: 0 6px 20px rgba(5, 7, 20, 0.45), 0 0 20px rgba(41, 62, 204, 0.12);
 }
 
 .btn-danger {
-    background: transparent;
-    color: var(--danger);
-    border: 1px solid rgba(239, 68, 68, 0.3);
+    background: rgba(239, 68, 68, 0.08);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.25);
 }
 
 .btn-danger:hover {
-    background: rgba(239, 68, 68, 0.1);
+    background: rgba(239, 68, 68, 0.18);
+    color: #ffffff;
     border-color: var(--danger);
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.2);
 }
 
 .btn-sm {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.8rem;
+    padding: 0.42rem 0.9rem;
+    font-size: 0.82rem;
 }
 
 .btn-lg {
-    padding: 0.85rem 2rem;
-    font-size: 1rem;
+    padding: 0.9rem 2.2rem;
+    font-size: 1.02rem;
 }
 
 .btn:active {
@@ -686,25 +747,34 @@ tbody tr:hover {
 .nav-logo {
     display: flex;
     align-items: center;
-    gap: var(--space-sm);
+    gap: 0.65rem;
     text-decoration: none;
     color: var(--text-color);
+    transition: transform var(--transition-fast);
+}
+
+.nav-logo:hover {
+    transform: translateY(-1px);
 }
 
 .nav-logo-mark {
-    font-weight: 800;
-    font-size: 1.6rem;
-    background: linear-gradient(135deg, var(--primary), var(--accent));
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.55rem;
+    letter-spacing: 0.04em;
+    background: linear-gradient(135deg, #a5b4fc, #c084fc);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
 }
 
 .nav-logo-text {
-    font-size: 1rem;
-    font-weight: 300;
-    letter-spacing: 2px;
-    text-transform: uppercase;
+    font-family: var(--font-display);
+    font-size: 1.18rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: #f7f8fe;
+    text-transform: none;
 }
 
 .nav-links {
@@ -727,12 +797,15 @@ tbody tr:hover {
 .nav-links a::after {
     content: '';
     position: absolute;
-    bottom: 0;
+    bottom: -2px;
     left: 0;
     width: 0;
     height: 2px;
-    background: linear-gradient(90deg, var(--primary), var(--accent));
-    transition: width var(--transition-base);
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--primary), var(--accent), var(--primary-light));
+    background-size: 200% 100%;
+    box-shadow: 0 0 10px rgba(157, 78, 221, 0.65), 0 0 18px rgba(41, 62, 204, 0.45);
+    transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1), background-position 1.2s ease;
 }
 
 .nav-links a:hover,
@@ -743,6 +816,7 @@ tbody tr:hover {
 .nav-links a:hover::after,
 .nav-links a.active::after {
     width: 100%;
+    background-position: 100% 0;
 }
 
 /* Mobile Nav Toggle */
@@ -854,13 +928,29 @@ tbody tr:hover {
     display: flex;
     align-items: center;
     gap: var(--space-md);
-    padding: 0.7rem 1rem;
+    padding: 0.75rem 1rem;
     color: var(--text-muted);
     border-radius: var(--radius-md);
     margin-bottom: var(--space-xs);
     font-size: 0.9rem;
     transition: all var(--transition-base);
     text-decoration: none;
+    position: relative;
+    overflow: hidden;
+}
+
+.admin-nav-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 0;
+    border-radius: 0 4px 4px 0;
+    background: linear-gradient(180deg, var(--primary-light), var(--accent));
+    box-shadow: 0 0 10px rgba(157, 78, 221, 0.7);
+    transition: height 0.3s var(--ease-out);
 }
 
 .admin-nav-item:hover {
@@ -868,16 +958,33 @@ tbody tr:hover {
     color: var(--text-color);
 }
 
+.admin-nav-item:hover::before {
+    height: 50%;
+}
+
 .admin-nav-item.active {
-    background: linear-gradient(135deg, var(--primary-glow), var(--accent-glow));
-    color: var(--primary-light);
+    background: linear-gradient(135deg, rgba(41, 62, 204, 0.22), rgba(157, 78, 221, 0.15));
+    color: white;
     font-weight: 500;
+    border: 1px solid rgba(157, 78, 221, 0.25);
+    box-shadow: 0 4px 20px rgba(41, 62, 204, 0.15);
+}
+
+.admin-nav-item.active::before {
+    height: 70%;
 }
 
 .admin-nav-item .nav-icon {
     width: 20px;
-    text-align: center;
-    font-size: 1.1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    transition: transform var(--transition-fast);
+}
+
+.admin-nav-item:hover .nav-icon {
+    transform: scale(1.1);
 }
 
 .admin-nav-badge {
@@ -1372,4 +1479,39 @@ tbody tr:hover {
     0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
     70% { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
     100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* Badge Instagram officiel @ascorio17 */
+.contact-insta-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 14px;
+    background: linear-gradient(135deg, rgba(157, 78, 221, 0.16), rgba(41, 62, 204, 0.16));
+    border: 1px solid rgba(181, 101, 247, 0.35);
+    border-radius: var(--radius-full);
+    color: #e9d5ff !important;
+    font-size: 0.88rem !important;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all var(--transition-fast);
+}
+
+.contact-insta-badge:hover {
+    background: linear-gradient(135deg, rgba(157, 78, 221, 0.3), rgba(41, 62, 204, 0.3));
+    border-color: rgba(200, 140, 255, 0.65);
+    color: #ffffff !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(157, 78, 221, 0.28);
+}
+
+.insta-badge-arrow {
+    font-size: 0.78rem;
+    opacity: 0.7;
+    transition: transform var(--transition-fast);
+}
+
+.contact-insta-badge:hover .insta-badge-arrow {
+    transform: translate(2px, -2px);
+    opacity: 1;
 }

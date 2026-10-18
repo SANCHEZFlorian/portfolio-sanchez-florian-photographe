@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import PublicLayout from '@/Layouts/PublicLayout.vue';
 import ScrollReveal from '@/Components/ScrollReveal.vue';
+import { PhMapPin, PhEnvelopeSimple, PhInstagramLogo } from '@phosphor-icons/vue';
 
 defineOptions({ layout: PublicLayout });
 
@@ -42,10 +43,10 @@ const getInstaUsername = (url) => {
                     <ScrollReveal :delay="0.2">
                         <div class="about-bio">
                             <p>
-                                {{ settings?.about_text || "Passionné par la photographie depuis toujours, je capture les moments qui racontent des histoires uniques. Mon approche mêle créativité, technique et sensibilité pour créer des images qui marquent les esprits." }}
+                                {{ settings?.about_text || "Passionné par la photographie, je capture des instants authentiques qui racontent des histoires. Mon approche mêle rigueur technique, sens du cadrage et sensibilité pour sublimer la faune, la nature et la mécanique." }}
                             </p>
                             <p>
-                                {{ settings?.bio || "Spécialisé dans le portrait, la photo lifestyle et les shootings créatifs, je travaille avec des particuliers et des professionnels pour donner vie à leurs projets visuels." }}
+                                {{ settings?.bio || "Spécialisé dans la faune animale, les paysages naturels ainsi que l'univers automobile et moto, je parcours les routes et les grands espaces pour saisir des images fortes, contrastées et vibrantes." }}
                             </p>
                         </div>
                     </ScrollReveal>
@@ -53,22 +54,31 @@ const getInstaUsername = (url) => {
                     <ScrollReveal :delay="0.3">
                         <div class="about-details">
                             <div v-if="settings?.location" class="about-detail">
-                                <span class="about-detail-icon">📍</span>
+                                <span class="about-detail-icon">
+                                    <PhMapPin :size="18" weight="fill" />
+                                </span>
                                 <span>{{ settings.location }}</span>
                             </div>
                             <div v-if="settings?.email" class="about-detail">
-                                <span class="about-detail-icon">✉️</span>
+                                <span class="about-detail-icon">
+                                    <PhEnvelopeSimple :size="18" weight="fill" />
+                                </span>
                                 <a :href="`mailto:${settings.email}`">{{ settings.email }}</a>
                             </div>
-                            <div v-if="settings?.instagram_url" class="about-detail">
+                            <div class="about-detail">
                                 <span class="about-detail-icon">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-                                        <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-                                        <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
-                                    </svg>
+                                    <PhInstagramLogo :size="18" weight="fill" />
                                 </span>
-                                <a :href="settings.instagram_url" target="_blank" rel="noopener">{{ getInstaUsername(settings.instagram_url) }}</a>
+                                <a
+                                    :href="settings?.instagram_url || 'https://www.instagram.com/ascorio17/'"
+                                    target="_blank"
+                                    rel="noopener"
+                                    class="contact-insta-badge"
+                                >
+                                    <PhInstagramLogo :size="15" weight="fill" />
+                                    <span>@ascorio17</span>
+                                    <span class="insta-badge-arrow">↗</span>
+                                </a>
                             </div>
                         </div>
                     </ScrollReveal>

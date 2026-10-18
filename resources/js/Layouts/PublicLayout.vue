@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import ToastList from '@/Components/ToastList.vue';
+import PixiBackground from '@/Components/PixiBackground.vue';
 
 const page = usePage();
 const isScrolled = ref(false);
@@ -51,6 +52,7 @@ onUnmounted(() => {
 
 <template>
     <div class="public-page">
+        <PixiBackground mode="bokeh" :opacity="0.85" />
         <ToastList />
         <!-- Navigation -->
         <nav class="public-nav" :class="{ scrolled: isScrolled }">

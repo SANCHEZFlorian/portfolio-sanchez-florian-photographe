@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AdminModal from '@/Components/AdminModal.vue';
+import { PhEnvelopeSimple, PhTrash, PhEye } from '@phosphor-icons/vue';
 
 const props = defineProps({
     contacts: Array,
@@ -78,8 +79,13 @@ const formatDate = (dateString) => {
                         <td style="font-size: 0.85rem; color: var(--text-muted);">{{ formatDate(contact.created_at) }}</td>
                         <td>
                             <div style="display: flex; gap: var(--space-sm);">
-                                <button class="btn btn-ghost btn-sm" @click="viewingContact = contact">Voir</button>
-                                <button class="btn btn-danger btn-sm" @click="deleteContact(contact)">🗑️</button>
+                                <button class="btn btn-ghost btn-sm" @click="viewingContact = contact" style="display: inline-flex; align-items: center; gap: 4px;">
+                                    <PhEye :size="14" />
+                                    <span>Voir</span>
+                                </button>
+                                <button class="btn btn-danger btn-sm" @click="deleteContact(contact)" style="display: inline-flex; align-items: center;">
+                                    <PhTrash :size="14" />
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -88,7 +94,9 @@ const formatDate = (dateString) => {
         </div>
 
         <div v-else class="empty-state">
-            <div class="empty-state-icon">✉️</div>
+            <div class="empty-state-icon" style="display: flex; justify-content: center;">
+                <PhEnvelopeSimple :size="54" weight="thin" class="text-muted" />
+            </div>
             <div class="empty-state-title">Aucun message</div>
             <div class="empty-state-text">Les messages reçus via le formulaire de contact apparaîtront ici.</div>
         </div>
