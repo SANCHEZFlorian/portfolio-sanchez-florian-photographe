@@ -19,5 +19,23 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->respond(function (\Symfony\Component\HttpFoundation\Response $response, \Throwable $exception, \Illuminate\Http\Request $request) {
+            $status = $response->getStatusCode();
+
+            if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+                return $response;
+            }
+
+            if (in_array($status, [401, 403, 404, 419, 429, 503], true)
+                || ($status === 500 && ! config('app.debug'))
+            ) {
+                return \Inertia\Inertia::render('Error', [
+                    'status' => $status,
+                ])
+                    ->toResponse($request)
+                    ->setStatusCode($status);
+            }
+
+            return $response;
+        });
     })->create();
