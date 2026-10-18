@@ -334,6 +334,59 @@ const draggedItem = ref(null); // { photo, fromSlot, fromRowIndex, fromDock }
 const dragOverSlot = ref(null);
 const draggingRowIndex = ref(null);
 const dragOverRowIndex = ref(null);
+const isDockCollapsed = ref(false);
+
+// Auto-scroll fluide de la fenêtre pendant le glisser-déposer près des bords haut/bas
+let autoScrollRaf = null;
+let autoScrollVelocity = 0;
+
+const stopDragAutoScroll = () => {
+    autoScrollVelocity = 0;
+    if (autoScrollRaf) {
+        cancelAnimationFrame(autoScrollRaf);
+        autoScrollRaf = null;
+    }
+};
+
+const stepDragAutoScroll = () => {
+    if (autoScrollVelocity !== 0 && (draggedItem.value || draggingRowIndex.value !== null)) {
+        window.scrollBy(0, autoScrollVelocity);
+        autoScrollRaf = requestAnimationFrame(stepDragAutoScroll);
+    } else {
+        autoScrollRaf = null;
+    }
+};
+
+const handleWindowDragOver = (e) => {
+    if (!draggedItem.value && draggingRowIndex.value === null) {
+        stopDragAutoScroll();
+        return;
+    }
+    if (e.target && e.target.closest && e.target.closest('.unplaced-photos-dock')) {
+        stopDragAutoScroll();
+        return;
+    }
+    const edgeThreshold = 110;
+    const maxSpeed = 18;
+    const y = e.clientY;
+    const h = window.innerHeight;
+
+    if (y < edgeThreshold) {
+        const ratio = Math.max(0.15, (edgeThreshold - y) / edgeThreshold);
+        autoScrollVelocity = -Math.round(maxSpeed * ratio);
+    } else if (y > h - edgeThreshold) {
+        const ratio = Math.max(0.15, (y - (h - edgeThreshold)) / edgeThreshold);
+        autoScrollVelocity = Math.round(maxSpeed * ratio);
+    } else {
+        autoScrollVelocity = 0;
+    }
+
+    if (autoScrollVelocity !== 0 && !autoScrollRaf) {
+        autoScrollRaf = requestAnimationFrame(stepDragAutoScroll);
+    } else if (autoScrollVelocity === 0) {
+        stopDragAutoScroll();
+    }
+};
 
 const getFormatLabel = (cols, rows) => {
     if (cols === 6 && rows === 4) return 'Grand Paysage';
@@ -669,6 +722,13 @@ const applyHarmonyTemplate = (template, insertIndex = null) => {
 
     showAddRowModal.value = false;
     syncAllPositionsAndSave();
+    nextTick(() => {
+        updateAdminGridUnit();
+        const el = document.getElementById(`harmonic-row-${newRow.id}`);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
 };
 
 // Drag & drop des photos
@@ -787,6 +847,7 @@ const onDropOnDock = (e) => {
 const onPhotoDragEnd = () => {
     draggedItem.value = null;
     dragOverSlot.value = null;
+    stopDragAutoScroll();
 };
 
 // Remplissage automatique des slots vides avec les photos en attente
@@ -1396,6 +1457,9 @@ onMounted(() => {
         resizeObserver = new ResizeObserver(() => updateAdminGridUnit());
         resizeObserver.observe(adminGridRef.value);
     }
+    window.addEventListener('dragover', handleWindowDragOver);
+    window.addEventListener('dragend', stopDragAutoScroll);
+    window.addEventListener('drop', stopDragAutoScroll);
 });
 
 watch(() => props.photos, (newPhotos) => {
@@ -1406,6 +1470,10 @@ watch(() => props.photos, (newPhotos) => {
 
 onUnmounted(() => {
     if (resizeObserver) resizeObserver.disconnect();
+    stopDragAutoScroll();
+    window.removeEventListener('dragover', handleWindowDragOver);
+    window.removeEventListener('dragend', stopDragAutoScroll);
+    window.removeEventListener('drop', stopDragAutoScroll);
 });
 </script>
 
@@ -1613,10 +1681,11 @@ onUnmounted(() => {
 
         <!-- 1. VUE MOSAÏQUE RÉELLE (WYSIWYG INTERACTIVE PAR SLOTS) -->
         <div v-if="photos.length > 0">
-            <!-- Bac de photos en attente de placement (Dock) -->
+            <!-- Bac de photos en attente de placement (Dock épinglé au scroll) -->
             <div 
                 v-if="unplacedPhotos.length > 0" 
                 class="unplaced-photos-dock"
+                :class="{ 'is-collapsed': isDockCollapsed }"
                 @dragover.prevent
                 @drop.prevent="onDropOnDock"
             >
@@ -1626,19 +1695,28 @@ onUnmounted(() => {
                         <span>Photos en attente de placement ({{ unplacedPhotos.length }})</span>
                     </div>
                     <div class="dock-actions">
-                        <span class="dock-hint">Glissez les photos dans les emplacements vides ci-dessous</span>
+                        <span v-if="!isDockCollapsed" class="dock-hint">Glissez les photos dans les emplacements vides ci-dessous</span>
                         <button type="button" class="dock-btn-auto" @click="autoFillEmptySlots">
                             ⚡ Remplir automatiquement les emplacements vides
                         </button>
+                        <button
+                            type="button"
+                            class="dock-btn-collapse"
+                            @click="isDockCollapsed = !isDockCollapsed"
+                            :title="isDockCollapsed ? 'Déplier le bac de photos' : 'Réduire le bac de photos'"
+                        >
+                            {{ isDockCollapsed ? '▼ Déplier' : '▲ Réduire' }}
+                        </button>
                     </div>
                 </div>
-                <div class="dock-photos-strip">
+                <div v-show="!isDockCollapsed" class="dock-photos-strip">
                     <div 
                         v-for="photo in unplacedPhotos"
                         :key="photo.id"
                         class="dock-photo-item"
                         draggable="true"
                         @dragstart="onDockPhotoDragStart($event, photo)"
+                        @dragend="onPhotoDragEnd"
                         @click="openPhotoEdit(photo)"
                         :title="`Glisser cette photo vers un emplacement vide\n${photo.caption || 'Sans légende'}`"
                     >
@@ -1671,6 +1749,7 @@ onUnmounted(() => {
                 <div
                     v-for="(row, bIdx) in compositionRows"
                     :key="row.id"
+                    :id="`harmonic-row-${row.id}`"
                     class="admin-composition-row-block"
                     :class="{
                         'is-row-dragging': draggingRowIndex === bIdx,
@@ -2589,15 +2668,24 @@ onUnmounted(() => {
     border-radius: var(--radius-full);
 }
 
-/* --- Bac de photos en attente de placement (Dock) --- */
+/* --- Bac de photos en attente de placement (Dock épinglé au scroll) --- */
 .unplaced-photos-dock {
-    background: var(--surface-color);
-    border: 1px solid var(--border-color);
+    position: sticky;
+    top: 12px;
+    z-index: 45;
+    background: rgba(15, 20, 40, 0.94);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(99, 102, 241, 0.45);
     border-radius: var(--radius-lg);
     padding: var(--space-md) var(--space-lg);
     margin-bottom: var(--space-xl);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
-    transition: border-color 0.2s ease;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.65), 0 0 18px rgba(41, 62, 204, 0.2);
+    transition: border-color 0.2s ease, padding 0.2s ease;
+}
+
+.unplaced-photos-dock.is-collapsed {
+    padding: 0.65rem var(--space-lg);
 }
 
 .dock-header {
@@ -2607,6 +2695,10 @@ onUnmounted(() => {
     margin-bottom: var(--space-md);
     flex-wrap: wrap;
     gap: var(--space-md);
+}
+
+.unplaced-photos-dock.is-collapsed .dock-header {
+    margin-bottom: 0;
 }
 
 .dock-title {
@@ -2621,12 +2713,14 @@ onUnmounted(() => {
 .dock-actions {
     display: flex;
     align-items: center;
-    gap: var(--space-md);
+    gap: var(--space-sm);
+    flex-wrap: wrap;
 }
 
 .dock-hint {
     font-size: 0.8rem;
     color: var(--text-muted);
+    margin-right: 4px;
 }
 
 .dock-btn-auto {
@@ -2647,11 +2741,31 @@ onUnmounted(() => {
     border-color: var(--primary);
 }
 
+.dock-btn-collapse {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #e2e8f0;
+    padding: 0.35rem 0.65rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.dock-btn-collapse:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: white;
+}
+
 .dock-photos-strip {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
     padding-bottom: 4px;
+    max-height: 168px;
+    overflow-y: auto;
+    padding-right: 4px;
 }
 
 .dock-photo-item {
