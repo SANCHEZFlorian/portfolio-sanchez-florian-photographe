@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicController;
 use Illuminate\Support\Facades\Route;
@@ -16,6 +17,11 @@ Route::get('/galerie', [PublicController::class, 'gallery'])->name('gallery');
 Route::get('/a-propos', [PublicController::class, 'about'])->name('about');
 Route::get('/contact', [PublicController::class, 'contact'])->name('contact');
 Route::post('/contact', [PublicController::class, 'contactStore'])->name('contact.store');
+
+// Espace de livraison client privé
+Route::get('/livraison/{token}', [DeliveryController::class, 'show'])->name('delivery.show');
+Route::get('/livraison/{token}/telecharger-zip', [DeliveryController::class, 'downloadZip'])->name('delivery.downloadZip');
+Route::get('/livraison/{token}/photos/{photo}/telecharger', [DeliveryController::class, 'downloadPhoto'])->name('delivery.downloadPhoto');
 
 /*
 |--------------------------------------------------------------------------
@@ -44,6 +50,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::resource('categories', \App\Http\Controllers\Admin\CategoryController::class)->only(['index', 'store', 'update', 'destroy']);
 
     // Projects
+    Route::post('projects/{project}/regenerate-delivery-token', [\App\Http\Controllers\Admin\ProjectController::class, 'regenerateDeliveryToken'])->name('projects.regenerateDeliveryToken');
     Route::resource('projects', \App\Http\Controllers\Admin\ProjectController::class);
 
     // Photos (nested under projects)

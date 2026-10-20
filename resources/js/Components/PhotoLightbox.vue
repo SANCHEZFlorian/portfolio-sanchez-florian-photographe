@@ -8,11 +8,13 @@ import {
     PhCornersOut,
     PhArrowsIn,
     PhCamera,
+    PhDownloadSimple,
 } from '@phosphor-icons/vue';
 
 const props = defineProps({
     photos: { type: Array, required: true },
     activePhoto: { type: Object, default: null },
+    deliveryToken: { type: String, default: null },
 });
 
 const emit = defineEmits(['close', 'next', 'prev']);
@@ -118,10 +120,21 @@ onUnmounted(() => {
                 <div class="lightbox-topbar">
                     <div class="viewfinder-tag">
                         <PhCamera :size="16" weight="duotone" class="text-accent" />
-                        <span>RAW &bull; {{ currentIndex + 1 }} / {{ photos.length }}</span>
+                        <span>Photo {{ currentIndex + 1 }} / {{ photos.length }}</span>
                     </div>
 
                     <div class="lightbox-actions">
+                        <a
+                            v-if="deliveryToken"
+                            :href="`/livraison/${deliveryToken}/photos/${activePhoto.id}/telecharger`"
+                            class="action-btn download-btn"
+                            title="Télécharger cette photo en haute définition"
+                            download
+                        >
+                            <PhDownloadSimple :size="19" weight="bold" />
+                            <span class="download-label">Télécharger HD</span>
+                        </a>
+
                         <button
                             class="action-btn"
                             @click="toggleFullscreen"
@@ -160,6 +173,9 @@ onUnmounted(() => {
                             class="lightbox-img"
                             :key="activePhoto.id"
                             :alt="activePhoto.caption || 'Photographie'"
+                            @contextmenu.prevent
+                            @dragstart.prevent
+                            draggable="false"
                             @load="isImageLoaded = true"
                         />
                     </div>
@@ -294,6 +310,46 @@ onUnmounted(() => {
     color: #f87171;
     border-color: rgba(239, 68, 68, 0.4);
     box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+}
+
+.download-btn {
+    width: auto;
+    padding: 0 1rem;
+    border-radius: var(--radius-full);
+    background: linear-gradient(135deg, rgba(121, 40, 202, 0.4) 0%, rgba(67, 56, 202, 0.4) 100%);
+    border: 1px solid rgba(157, 78, 221, 0.4);
+    color: #fff;
+    text-decoration: none;
+    gap: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.download-btn:hover {
+    background: linear-gradient(135deg, rgba(121, 40, 202, 0.8) 0%, rgba(67, 56, 202, 0.8) 100%);
+    border-color: rgba(157, 78, 221, 0.8);
+    box-shadow: 0 0 20px rgba(157, 78, 221, 0.4);
+    transform: translateY(-1px);
+}
+
+.download-label {
+    display: inline;
+}
+
+@media (max-width: 640px) {
+    .download-label {
+        display: none;
+    }
+    .download-btn {
+        width: 42px;
+        padding: 0;
+    }
+}
+
+.lightbox-img {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
 }
 
 /* Boutons de navigation Flèches */

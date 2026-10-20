@@ -83,6 +83,10 @@ class ProjectController extends Controller
             'location' => 'nullable|string|max:255',
             'is_featured' => 'sometimes|boolean',
             'status' => 'sometimes|in:draft,published',
+            'delivery_enabled' => 'sometimes|boolean',
+            'delivery_title' => 'nullable|string|max:255',
+            'delivery_message' => 'nullable|string|max:3000',
+            'delivery_expires_at' => 'nullable|date',
         ]);
 
         $validated['slug'] = Str::slug($validated['title']);
@@ -94,9 +98,25 @@ class ProjectController extends Controller
             $validated['slug'] = $base . '-' . $i++;
         }
 
+        // Si la livraison est activée et qu'il n'y a pas encore de token, on en génère un
+        if (!empty($validated['delivery_enabled']) && empty($project->delivery_token)) {
+            $validated['delivery_token'] = Str::random(40);
+        }
+
         $project->update($validated);
 
         return back()->with('success', 'Projet mis à jour.');
+    }
+
+    /**
+     * Régénère un nouveau jeton d'accès sécurisé pour la livraison
+     */
+    public function regenerateDeliveryToken(string $id)
+    {
+        $project = \App\Models\Project::findOrFail($id);
+        $project->generateDeliveryToken(true);
+
+        return back()->with('success', 'Nouveau lien de livraison généré avec succès.');
     }
 
     public function destroy(string $id)

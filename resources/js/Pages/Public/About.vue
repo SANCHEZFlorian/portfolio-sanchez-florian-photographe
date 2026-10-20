@@ -18,7 +18,12 @@ const getInstaUsername = (url) => {
 </script>
 
 <template>
-    <Head title="À propos" />
+    <Head>
+        <title>À propos | Florian Sanchez Photographe</title>
+        <meta name="description" content="Découvrez le parcours, l'approche et la sensibilité artistique de Florian Sanchez, photographe professionnel à Toulouse et partout ailleurs." />
+        <meta property="og:title" content="À propos | Florian Sanchez Photographe" />
+        <meta property="og:description" content="Découvrez le parcours et la démarche artistique de Florian Sanchez, photographe." />
+    </Head>
 
     <section class="section">
         <div class="container">

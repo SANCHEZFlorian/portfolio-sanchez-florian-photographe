@@ -24,7 +24,15 @@ onMounted(() => {
     if (page.props.flash.success) addToast(page.props.flash.success, 'success');
     if (page.props.flash.error) addToast(page.props.flash.error, 'error');
     if (page.props.flash.info) addToast(page.props.flash.info, 'info');
+
+    window.addEventListener('app-toast', handleCustomToast);
 });
+
+const handleCustomToast = (e) => {
+    if (e.detail?.message) {
+        addToast(e.detail.message, e.detail.type || 'success');
+    }
+};
 
 const removeToast = (id) => {
     toasts.value = toasts.value.filter(t => t.id !== id);

@@ -20,6 +20,13 @@ import {
     PhTrash,
     PhPencilSimple,
     PhImages,
+    PhShareNetwork,
+    PhCopy,
+    PhCheck,
+    PhArrowSquareOut,
+    PhDownloadSimple,
+    PhArrowsClockwise,
+    PhLockKey,
 } from '@phosphor-icons/vue';
 
 const props = defineProps({
@@ -95,10 +102,57 @@ const form = useForm({
     location: props.project.location || '',
     is_featured: props.project.is_featured || false,
     status: props.project.status || 'published',
+    delivery_enabled: Boolean(props.project.delivery_enabled),
+    delivery_title: props.project.delivery_title || '',
+    delivery_message: props.project.delivery_message || '',
+    delivery_expires_at: props.project.delivery_expires_at ? props.project.delivery_expires_at.split('T')[0] : '',
 });
 
 const submitMeta = () => {
     form.put(`/admin/projects/${props.project.id}`, { preserveScroll: true });
+};
+
+// Gestion de la livraison client
+const copiedDeliveryLink = ref(false);
+const copyDeliveryLink = async () => {
+    if (!props.project.delivery_url) return;
+    try {
+        await navigator.clipboard.writeText(props.project.delivery_url);
+        copiedDeliveryLink.value = true;
+        setTimeout(() => (copiedDeliveryLink.value = false), 2500);
+        window.dispatchEvent(
+            new CustomEvent('app-toast', {
+                detail: { message: 'Lien de livraison copié dans le presse-papier !', type: 'success' },
+            })
+        );
+    } catch (e) {
+        const input = document.createElement('input');
+        input.value = props.project.delivery_url;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        copiedDeliveryLink.value = true;
+        setTimeout(() => (copiedDeliveryLink.value = false), 2500);
+        window.dispatchEvent(
+            new CustomEvent('app-toast', {
+                detail: { message: 'Lien de livraison copié !', type: 'success' },
+            })
+        );
+    }
+};
+
+const showConfirmRegenerateModal = ref(false);
+const regeneratingToken = ref(false);
+const confirmRegenerateToken = () => {
+    regeneratingToken.value = true;
+    router.post(`/admin/projects/${props.project.id}/regenerate-delivery-token`, {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            regeneratingToken.value = false;
+            showConfirmRegenerateModal.value = false;
+        },
+    });
 };
 
 // Photo upload & batch processing
@@ -1575,6 +1629,124 @@ onUnmounted(() => {
                         </button>
                     </form>
                 </div>
+
+                <!-- Espace de Livraison Client -->
+                <div class="card" style="margin-top: var(--space-xl); border: 1px solid rgba(157, 78, 221, 0.25); background: linear-gradient(180deg, rgba(22, 22, 34, 0.95) 0%, rgba(15, 15, 23, 0.95) 100%);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-md);">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <PhShareNetwork :size="20" weight="duotone" style="color: var(--accent-light);" />
+                            <h3 style="margin: 0; font-size: 1.1rem; color: #fff;">Espace de Livraison</h3>
+                        </div>
+                        <span v-if="project.delivery_enabled" class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.75rem;">
+                            Actif
+                        </span>
+                        <span v-else class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; font-size: 0.75rem;">
+                            Désactivé
+                        </span>
+                    </div>
+
+                    <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: var(--space-md);">
+                        Partagez un lien direct et privé à vos clients pour admirer et télécharger leurs photos en haute définition.
+                    </p>
+
+                    <form @submit.prevent="submitMeta">
+                        <div style="margin-bottom: var(--space-md); padding: 12px; background: rgba(255, 255, 255, 0.03); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.06);">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.95rem; font-weight: 500; color: #fff;">
+                                <input type="checkbox" v-model="form.delivery_enabled" style="width: 18px; height: 18px; accent-color: var(--accent-light);" />
+                                <span>Activer la galerie de livraison</span>
+                            </label>
+                        </div>
+
+                        <!-- Options si activé -->
+                        <div v-if="form.delivery_enabled" style="display: flex; flex-direction: column; gap: var(--space-md);">
+                            <!-- Lien de livraison si déjà généré -->
+                            <div v-if="project.delivery_url" style="padding: 12px; background: rgba(157, 78, 221, 0.08); border-radius: 8px; border: 1px solid rgba(157, 78, 221, 0.25);">
+                                <label class="form-label" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                                    <span style="color: var(--accent-light); font-weight: 600;">Lien client sécurisé</span>
+                                    <span v-if="project.delivery_download_count > 0" style="font-size: 0.75rem; color: var(--text-muted);">
+                                        {{ project.delivery_download_count }} téléchargement(s)
+                                    </span>
+                                </label>
+                                <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                                    <input 
+                                        type="text" 
+                                        :value="project.delivery_url" 
+                                        readonly 
+                                        style="font-size: 0.8rem; font-family: monospace; padding: 8px 10px; background: rgba(0,0,0,0.4); border-color: rgba(255,255,255,0.1); flex: 1;" 
+                                    />
+                                    <button 
+                                        type="button" 
+                                        @click="copyDeliveryLink" 
+                                        class="btn btn-sm" 
+                                        :style="{ background: copiedDeliveryLink ? 'var(--accent)' : 'rgba(255,255,255,0.1)', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }"
+                                        title="Copier le lien"
+                                    >
+                                        <component :is="copiedDeliveryLink ? PhCheck : PhCopy" :size="15" weight="bold" />
+                                        <span>{{ copiedDeliveryLink ? 'Copié !' : 'Copier' }}</span>
+                                    </button>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                                    <a 
+                                        :href="project.delivery_url" 
+                                        target="_blank" 
+                                        rel="noopener" 
+                                        style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; color: var(--accent-light); text-decoration: none;"
+                                    >
+                                        <PhArrowSquareOut :size="14" />
+                                        <span>Tester la vue client</span>
+                                    </a>
+                                    <button 
+                                        type="button" 
+                                        @click="showConfirmRegenerateModal = true"
+                                        style="background: transparent; border: none; color: var(--text-muted); font-size: 0.75rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;"
+                                        title="Révoquer et générer un nouveau token"
+                                    >
+                                        <PhArrowsClockwise :size="13" />
+                                        <span>Régénérer le lien</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div v-else style="padding: 10px; background: rgba(234, 179, 8, 0.1); border-radius: 8px; border: 1px solid rgba(234, 179, 8, 0.2); font-size: 0.85rem; color: #fef08a;">
+                                💡 Sauvegardez le projet pour générer le lien de livraison secret unique.
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Titre d'accueil client (optionnel)</label>
+                                <input 
+                                    type="text" 
+                                    v-model="form.delivery_title" 
+                                    :placeholder="form.title || 'ex: Shooting Portrait - Thomas'" 
+                                />
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Message d'accueil personnalisé</label>
+                                <textarea 
+                                    v-model="form.delivery_message" 
+                                    rows="3" 
+                                    placeholder="ex: Bonjour Thomas ! C'était un plaisir de réaliser ce shooting. Voici tes clichés en haute définition originale..."
+                                ></textarea>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Date d'expiration (optionnel)</label>
+                                <input type="date" v-model="form.delivery_expires_at" />
+                                <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; display: block;">
+                                    Laissez vide pour un lien actif sans limite de temps.
+                                </span>
+                            </div>
+                        </div>
+
+                        <button 
+                            type="submit" 
+                            class="btn" 
+                            style="width: 100%; margin-top: var(--space-md); background: linear-gradient(135deg, #7928ca 0%, #4338ca 100%); color: #fff; font-weight: 500;"
+                            :disabled="form.processing"
+                        >
+                            {{ form.processing ? 'Sauvegarde...' : 'Enregistrer la livraison' }}
+                        </button>
+                    </form>
+                </div>
             </div>
 
             <!-- Right: Photos Manager -->
@@ -2284,6 +2456,16 @@ onUnmounted(() => {
             message="Êtes-vous sûr de vouloir supprimer cette photo ? Cette action est irréversible."
             @close="confirmDeletion = null"
             @confirm="executeDelete"
+        />
+
+        <!-- Delivery Token Regeneration Confirmation -->
+        <ConfirmModal
+            :show="showConfirmRegenerateModal"
+            title="Régénérer le lien de livraison"
+            message="Êtes-vous sûr de vouloir régénérer ce lien ? L'ancien lien cessera immédiatement de fonctionner et vos clients devront utiliser le nouveau lien."
+            confirmText="Régénérer le lien"
+            @close="showConfirmRegenerateModal = false"
+            @confirm="confirmRegenerateToken"
         />
     </AuthenticatedLayout>
 </template>

@@ -1,7 +1,7 @@
 <script setup>
 import { Head, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { PhPlus, PhCamera, PhPencilSimple, PhStar } from '@phosphor-icons/vue';
+import { PhPlus, PhCamera, PhPencilSimple, PhStar, PhShareNetwork } from '@phosphor-icons/vue';
 
 const props = defineProps({
     projects: Array,
@@ -28,6 +28,7 @@ const props = defineProps({
                         <th>Catégorie</th>
                         <th>Photos</th>
                         <th>Statut</th>
+                        <th>Livraison</th>
                         <th>En avant</th>
                         <th>Actions</th>
                     </tr>
@@ -44,6 +45,21 @@ const props = defineProps({
                             <span :class="project.status === 'published' ? 'badge badge-success' : 'badge badge-warning'">
                                 {{ project.status === 'published' ? 'Publié' : 'Brouillon' }}
                             </span>
+                        </td>
+                        <td>
+                            <a
+                                v-if="project.delivery_enabled && project.delivery_url"
+                                :href="project.delivery_url"
+                                target="_blank"
+                                rel="noopener"
+                                class="badge"
+                                style="background: rgba(157, 78, 221, 0.15); color: var(--accent-light); border: 1px solid rgba(157, 78, 221, 0.3); text-decoration: none; display: inline-flex; align-items: center; gap: 4px;"
+                                title="Ouvrir la galerie client"
+                            >
+                                <PhShareNetwork :size="12" weight="bold" />
+                                <span>Actif ({{ project.delivery_download_count || 0 }})</span>
+                            </a>
+                            <span v-else class="text-muted" style="font-size: 0.85rem;">—</span>
                         </td>
                         <td>
                             <span v-if="project.is_featured" class="badge badge-accent" style="display: inline-flex; align-items: center; gap: 4px;">

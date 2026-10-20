@@ -34,7 +34,12 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Contact" />
+    <Head>
+        <title>Contact & Réservation | Florian Sanchez Photographe</title>
+        <meta name="description" content="Une question, un devis ou un projet photo ? Contactez Florian Sanchez pour échanger sur vos besoins en portrait, reportage ou événementiel." />
+        <meta property="og:title" content="Contact & Réservation | Florian Sanchez Photographe" />
+        <meta property="og:description" content="Prenez contact avec Florian Sanchez pour discuter de votre prochain shooting photo." />
+    </Head>
 
     <section class="section">
         <div class="container">

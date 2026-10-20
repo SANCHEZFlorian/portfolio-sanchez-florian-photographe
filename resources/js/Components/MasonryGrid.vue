@@ -119,6 +119,9 @@ watch(() => props.photos, () => {
                     :src="`/storage/${photo.thumbnail_path || photo.image_path}`"
                     :alt="photo.caption || 'Photographie'"
                     loading="lazy"
+                    @contextmenu.prevent
+                    @dragstart.prevent
+                    draggable="false"
                     @load="(e) => e.target.classList.add('loaded')"
                 />
             </div>
@@ -175,6 +178,9 @@ watch(() => props.photos, () => {
     position: relative;
     z-index: 2;
     display: block;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
 }
 
 .grid-item img.loaded {
