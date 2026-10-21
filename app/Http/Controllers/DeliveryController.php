@@ -17,17 +17,26 @@ class DeliveryController extends Controller
     /**
      * Affiche l'espace de livraison client d'un projet via son lien sécurisé
      */
-    public function show(string $token)
+    public function show(Request $request, string $token)
     {
         $project = Project::where('delivery_token', $token)
             ->where('delivery_enabled', true)
-            ->with(['category', 'photos' => fn($q) => $q->orderBy('display_order')])
             ->firstOrFail();
 
         // Vérification de la date d'expiration éventuelle
         if ($project->delivery_expires_at && $project->delivery_expires_at->isPast()) {
             abort(404, 'Ce lien de livraison a expiré.');
         }
+
+        // Vérification du mot de passe si requis
+        if (!empty($project->delivery_password) && !$request->session()->get('delivery_unlocked_' . $project->id)) {
+            return Inertia::render('Public/DeliveryPassword', [
+                'projectTitle' => $project->delivery_title ?: $project->title,
+                'token' => $token,
+            ]);
+        }
+
+        $project->load(['category', 'photos' => fn($q) => $q->orderBy('display_order')]);
 
         // Calcul de la taille totale des photos originales
         $totalBytes = 0;
@@ -48,9 +57,35 @@ class DeliveryController extends Controller
     }
 
     /**
+     * Déverrouille l'accès à la galerie avec le mot de passe client
+     */
+    public function unlock(Request $request, string $token)
+    {
+        $project = Project::where('delivery_token', $token)
+            ->where('delivery_enabled', true)
+            ->firstOrFail();
+
+        if ($project->delivery_expires_at && $project->delivery_expires_at->isPast()) {
+            abort(404, 'Ce lien de livraison a expiré.');
+        }
+
+        $request->validate([
+            'password' => 'required|string',
+        ]);
+
+        if (trim($request->input('password')) !== trim($project->delivery_password)) {
+            return back()->withErrors(['password' => 'Mot de passe incorrect.']);
+        }
+
+        $request->session()->put('delivery_unlocked_' . $project->id, true);
+
+        return redirect()->route('delivery.show', $token);
+    }
+
+    /**
      * Télécharge l'archive complète ZIP contenant toutes les photos originales HD avec métadonnées intactes
      */
-    public function downloadZip(string $token)
+    public function downloadZip(Request $request, string $token)
     {
         $project = Project::where('delivery_token', $token)
             ->where('delivery_enabled', true)
@@ -59,6 +94,11 @@ class DeliveryController extends Controller
 
         if ($project->delivery_expires_at && $project->delivery_expires_at->isPast()) {
             abort(404, 'Ce lien de livraison a expiré.');
+        }
+
+        // Vérification du mot de passe
+        if (!empty($project->delivery_password) && !$request->session()->get('delivery_unlocked_' . $project->id)) {
+            abort(403, 'Accès protégé par mot de passe.');
         }
 
         if ($project->photos->isEmpty()) {
@@ -111,7 +151,7 @@ class DeliveryController extends Controller
     /**
      * Télécharge une photo individuelle en haute définition originale avec toutes ses métadonnées EXIF
      */
-    public function downloadPhoto(string $token, Photo $photo)
+    public function downloadPhoto(Request $request, string $token, Photo $photo)
     {
         $project = Project::where('delivery_token', $token)
             ->where('delivery_enabled', true)
@@ -119,6 +159,11 @@ class DeliveryController extends Controller
 
         if ($project->delivery_expires_at && $project->delivery_expires_at->isPast()) {
             abort(404, 'Ce lien de livraison a expiré.');
+        }
+
+        // Vérification du mot de passe
+        if (!empty($project->delivery_password) && !$request->session()->get('delivery_unlocked_' . $project->id)) {
+            abort(403, 'Accès protégé par mot de passe.');
         }
 
         if ($photo->project_id !== $project->id) {

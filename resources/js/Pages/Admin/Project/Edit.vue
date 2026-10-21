@@ -27,6 +27,8 @@ import {
     PhDownloadSimple,
     PhArrowsClockwise,
     PhLockKey,
+    PhKey,
+    PhShieldCheck,
 } from '@phosphor-icons/vue';
 
 const props = defineProps({
@@ -103,6 +105,7 @@ const form = useForm({
     is_featured: props.project.is_featured || false,
     status: props.project.status || 'published',
     delivery_enabled: Boolean(props.project.delivery_enabled),
+    delivery_password: props.project.delivery_password || '',
     delivery_title: props.project.delivery_title || '',
     delivery_message: props.project.delivery_message || '',
     delivery_expires_at: props.project.delivery_expires_at ? props.project.delivery_expires_at.split('T')[0] : '',
@@ -111,6 +114,31 @@ const form = useForm({
 const submitMeta = () => {
     form.put(`/admin/projects/${props.project.id}`, { preserveScroll: true });
 };
+
+// Générateur de mot de passe sécurisé
+const generatePassword = () => {
+    const letters = '23456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ';
+    const specials = '!@#$%&*';
+    let res = '';
+    for (let i = 0; i < 7; i++) {
+        res += letters.charAt(Math.floor(Math.random() * letters.length));
+    }
+    res += specials.charAt(Math.floor(Math.random() * specials.length));
+    res += Math.floor(Math.random() * 8 + 2);
+    form.delivery_password = res.split('').sort(() => 0.5 - Math.random()).join('');
+    window.dispatchEvent(
+        new CustomEvent('app-toast', {
+            detail: { message: 'Nouveau mot de passe sécurisé généré ! Pensez à enregistrer.', type: 'info' },
+        })
+    );
+};
+
+// Génère automatiquement un mot de passe dès que l'espace livraison est activé s'il n'en a pas
+watch(() => form.delivery_enabled, (enabled) => {
+    if (enabled && !form.delivery_password) {
+        generatePassword();
+    }
+});
 
 // Gestion de la livraison client
 const copiedDeliveryLink = ref(false);
@@ -137,6 +165,66 @@ const copyDeliveryLink = async () => {
         window.dispatchEvent(
             new CustomEvent('app-toast', {
                 detail: { message: 'Lien de livraison copié !', type: 'success' },
+            })
+        );
+    }
+};
+
+const copiedPassword = ref(false);
+const copyPassword = async () => {
+    if (!form.delivery_password) return;
+    try {
+        await navigator.clipboard.writeText(form.delivery_password);
+        copiedPassword.value = true;
+        setTimeout(() => (copiedPassword.value = false), 2500);
+        window.dispatchEvent(
+            new CustomEvent('app-toast', {
+                detail: { message: 'Mot de passe copié !', type: 'success' },
+            })
+        );
+    } catch (e) {
+        const input = document.createElement('input');
+        input.value = form.delivery_password;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        copiedPassword.value = true;
+        setTimeout(() => (copiedPassword.value = false), 2500);
+        window.dispatchEvent(
+            new CustomEvent('app-toast', {
+                detail: { message: 'Mot de passe copié !', type: 'success' },
+            })
+        );
+    }
+};
+
+const copiedFullInvite = ref(false);
+const copyFullInvite = async () => {
+    if (!props.project.delivery_url) return;
+    const pwdText = form.delivery_password ? `\nMot de passe : ${form.delivery_password}` : '';
+    const text = `Bonjour ! Voici le lien pour accéder et télécharger les photos de ton shooting :\n${props.project.delivery_url}${pwdText}`;
+    try {
+        await navigator.clipboard.writeText(text);
+        copiedFullInvite.value = true;
+        setTimeout(() => (copiedFullInvite.value = false), 2500);
+        window.dispatchEvent(
+            new CustomEvent('app-toast', {
+                detail: { message: 'Message complet (lien + mot de passe) copié !', type: 'success' },
+            })
+        );
+    } catch (e) {
+        const input = document.createElement('textarea');
+        input.value = text;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        copiedFullInvite.value = true;
+        setTimeout(() => (copiedFullInvite.value = false), 2500);
+        window.dispatchEvent(
+            new CustomEvent('app-toast', {
+                detail: { message: 'Message complet copié !', type: 'success' },
             })
         );
     }
@@ -1685,7 +1773,7 @@ onUnmounted(() => {
                                         <span>{{ copiedDeliveryLink ? 'Copié !' : 'Copier' }}</span>
                                     </button>
                                 </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
                                     <a 
                                         :href="project.delivery_url" 
                                         target="_blank" 
@@ -1695,19 +1783,72 @@ onUnmounted(() => {
                                         <PhArrowSquareOut :size="14" />
                                         <span>Tester la vue client</span>
                                     </a>
-                                    <button 
-                                        type="button" 
-                                        @click="showConfirmRegenerateModal = true"
-                                        style="background: transparent; border: none; color: var(--text-muted); font-size: 0.75rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;"
-                                        title="Révoquer et générer un nouveau token"
-                                    >
-                                        <PhArrowsClockwise :size="13" />
-                                        <span>Régénérer le lien</span>
-                                    </button>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <button 
+                                            type="button" 
+                                            @click="copyFullInvite"
+                                            style="background: rgba(157, 78, 221, 0.2); border: 1px solid rgba(157, 78, 221, 0.4); color: #fff; font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;"
+                                            title="Copie un message tout prêt contenant le lien et le mot de passe"
+                                        >
+                                            <component :is="copiedFullInvite ? PhCheck : PhShareNetwork" :size="13" />
+                                            <span>{{ copiedFullInvite ? 'Message copié !' : 'Copier lien + mot de passe' }}</span>
+                                        </button>
+                                        <button 
+                                            type="button" 
+                                            @click="showConfirmRegenerateModal = true"
+                                            style="background: transparent; border: none; color: var(--text-muted); font-size: 0.75rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;"
+                                            title="Révoquer et générer un nouveau token"
+                                        >
+                                            <PhArrowsClockwise :size="13" />
+                                            <span>Régénérer</span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <div v-else style="padding: 10px; background: rgba(234, 179, 8, 0.1); border-radius: 8px; border: 1px solid rgba(234, 179, 8, 0.2); font-size: 0.85rem; color: #fef08a;">
                                 💡 Sauvegardez le projet pour générer le lien de livraison secret unique.
+                            </div>
+
+                            <!-- Protection par Mot de Passe -->
+                            <div style="padding: 12px; background: rgba(255, 255, 255, 0.03); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <label class="form-label" style="display: inline-flex; align-items: center; gap: 6px; margin-bottom: 0; color: #fff; font-weight: 600;">
+                                        <PhLockKey :size="15" weight="fill" style="color: var(--accent-light);" />
+                                        <span>Mot de passe d'accès</span>
+                                    </label>
+                                    <button 
+                                        type="button" 
+                                        @click="generatePassword"
+                                        class="btn btn-sm"
+                                        style="background: rgba(157, 78, 221, 0.15); border: 1px solid rgba(157, 78, 221, 0.3); color: var(--accent-light); padding: 2px 8px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px;"
+                                        title="Générer un mot de passe sécurisé à la volée"
+                                    >
+                                        <PhArrowsClockwise :size="12" weight="bold" />
+                                        <span>Nouveau code</span>
+                                    </button>
+                                </div>
+
+                                <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+                                    <input 
+                                        type="text" 
+                                        v-model="form.delivery_password" 
+                                        placeholder="Mot de passe client..."
+                                        style="font-family: monospace; font-size: 0.9rem; padding: 7px 10px; background: rgba(0,0,0,0.5); border-color: rgba(255,255,255,0.15); flex: 1; letter-spacing: 0.5px;"
+                                    />
+                                    <button 
+                                        type="button" 
+                                        @click="copyPassword" 
+                                        class="btn btn-sm" 
+                                        :style="{ background: copiedPassword ? 'var(--accent)' : 'rgba(255,255,255,0.1)', color: '#fff', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }"
+                                        title="Copier le mot de passe"
+                                    >
+                                        <component :is="copiedPassword ? PhCheck : PhCopy" :size="14" weight="bold" />
+                                        <span>{{ copiedPassword ? 'Copié !' : 'Copier' }}</span>
+                                    </button>
+                                </div>
+                                <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">
+                                    🔒 Obligatoire : l'accès à la galerie et aux téléchargements sera bloqué sans ce code.
+                                </span>
                             </div>
 
                             <div class="form-group" style="margin-bottom: 0;">

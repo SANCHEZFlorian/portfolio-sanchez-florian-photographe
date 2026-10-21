@@ -106,4 +106,79 @@ class DeliveryTest extends TestCase
         $this->assertNotEquals('initial-token', $project->fresh()->delivery_token);
         $this->assertNotEmpty($project->fresh()->delivery_token);
     }
+
+    public function test_guest_is_prompted_for_password_when_set(): void
+    {
+        $category = Category::create(['name' => 'Portrait', 'slug' => 'portrait']);
+        $project = Project::create([
+            'title' => 'Shooting Sarah',
+            'slug' => 'shooting-sarah',
+            'category_id' => $category->id,
+            'delivery_enabled' => true,
+            'delivery_token' => 'sarah-token-pwd',
+            'delivery_password' => 'Secret123#',
+        ]);
+
+        // Première visite sans session déverrouillée : doit renvoyer la vue DeliveryPassword
+        $response = $this->get('/livraison/sarah-token-pwd');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->component('Public/DeliveryPassword')
+            ->where('token', 'sarah-token-pwd')
+        );
+    }
+
+    public function test_guest_fails_unlock_with_invalid_password(): void
+    {
+        $category = Category::create(['name' => 'Portrait', 'slug' => 'portrait']);
+        Project::create([
+            'title' => 'Shooting Sarah',
+            'slug' => 'shooting-sarah',
+            'category_id' => $category->id,
+            'delivery_enabled' => true,
+            'delivery_token' => 'sarah-token-pwd-fail',
+            'delivery_password' => 'Secret123#',
+        ]);
+
+        $response = $this->post('/livraison/sarah-token-pwd-fail/deverrouiller', [
+            'password' => 'MauvaisMotDePasse',
+        ]);
+
+        $response->assertSessionHasErrors('password');
+    }
+
+    public function test_guest_can_unlock_and_download_with_valid_password(): void
+    {
+        Storage::fake('public');
+
+        $category = Category::create(['name' => 'Portrait', 'slug' => 'portrait']);
+        $project = Project::create([
+            'title' => 'Shooting Sarah',
+            'slug' => 'shooting-sarah',
+            'category_id' => $category->id,
+            'delivery_enabled' => true,
+            'delivery_token' => 'sarah-token-pwd-ok',
+            'delivery_password' => 'MonSuperMotDePasse!',
+        ]);
+
+        // Tenter de télécharger le zip avant mot de passe -> 403
+        $forbiddenResponse = $this->get('/livraison/sarah-token-pwd-ok/telecharger-zip');
+        $forbiddenResponse->assertStatus(403);
+
+        // Déverrouiller avec le bon mot de passe
+        $unlockResponse = $this->post('/livraison/sarah-token-pwd-ok/deverrouiller', [
+            'password' => 'MonSuperMotDePasse!',
+        ]);
+
+        $unlockResponse->assertRedirect('/livraison/sarah-token-pwd-ok');
+        $unlockResponse->assertSessionHas('delivery_unlocked_' . $project->id, true);
+
+        // Maintenant l'accès à la galerie est autorisé
+        $galleryResponse = $this->get('/livraison/sarah-token-pwd-ok');
+        $galleryResponse->assertStatus(200);
+        $galleryResponse->assertInertia(fn ($page) => $page
+            ->component('Public/DeliveryShow')
+        );
+    }
 }

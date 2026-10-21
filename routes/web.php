@@ -20,6 +20,7 @@ Route::post('/contact', [PublicController::class, 'contactStore'])->name('contac
 
 // Espace de livraison client privé
 Route::get('/livraison/{token}', [DeliveryController::class, 'show'])->name('delivery.show');
+Route::post('/livraison/{token}/deverrouiller', [DeliveryController::class, 'unlock'])->name('delivery.unlock');
 Route::get('/livraison/{token}/telecharger-zip', [DeliveryController::class, 'downloadZip'])->name('delivery.downloadZip');
 Route::get('/livraison/{token}/photos/{photo}/telecharger', [DeliveryController::class, 'downloadPhoto'])->name('delivery.downloadPhoto');
 

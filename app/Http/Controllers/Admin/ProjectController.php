@@ -84,6 +84,7 @@ class ProjectController extends Controller
             'is_featured' => 'sometimes|boolean',
             'status' => 'sometimes|in:draft,published',
             'delivery_enabled' => 'sometimes|boolean',
+            'delivery_password' => 'nullable|string|max:100',
             'delivery_title' => 'nullable|string|max:255',
             'delivery_message' => 'nullable|string|max:3000',
             'delivery_expires_at' => 'nullable|date',
@@ -98,9 +99,15 @@ class ProjectController extends Controller
             $validated['slug'] = $base . '-' . $i++;
         }
 
-        // Si la livraison est activée et qu'il n'y a pas encore de token, on en génère un
-        if (!empty($validated['delivery_enabled']) && empty($project->delivery_token)) {
-            $validated['delivery_token'] = Str::random(40);
+        // Si la livraison est activée
+        if (!empty($validated['delivery_enabled'])) {
+            if (empty($project->delivery_token)) {
+                $validated['delivery_token'] = Str::random(40);
+            }
+            // Si aucun mot de passe n'est spécifié, en générer un automatiquement
+            if (empty($validated['delivery_password']) && empty($project->delivery_password)) {
+                $validated['delivery_password'] = \App\Models\Project::generateSecurePassword();
+            }
         }
 
         $project->update($validated);
